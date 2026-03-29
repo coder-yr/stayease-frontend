@@ -1,20 +1,74 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# StayEase Frontend
 
-This contains everything you need to run your app locally.
+A modern, full-featured frontend for StayEase — a student housing and travel booking platform. Built with React, Vite, and Tailwind CSS.
 
-View your app in AI Studio: https://ai.studio/apps/bb94ca6a-08cf-49f4-9251-4880ad7e1b06
+## Features
+- Student housing and hotel search & booking
+- Flight search and booking
+- User dashboard with real bookings, wallet, and profile
+- AI assistant for travel planning
+- Responsive design for desktop and mobile
+- Modern UI with smooth transitions and animations
 
-## Run Locally
+## Tech Stack
+- **React 19**
+- **Vite** (fast dev/build)
+- **TypeScript**
+- **Tailwind CSS**
+- **React Router v7**
+- **Lucide Icons**
+- **GSAP & Motion** (animations)
 
-**Prerequisites:**  Node.js
+## Getting Started
 
+### Prerequisites
+- Node.js (v18+ recommended)
 
+### Setup
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```sh
+   npm install
+   ```
+2. Copy `.env.example` to `.env.local` and set your environment variables (e.g. API base URL, Gemini API key).
+3. Start the development server:
+   ```sh
+   npm run dev
+   ```
+   The app will be available at [http://localhost:3000](http://localhost:3000).
+
+### Build for Production
+```sh
+npm run build
+```
+The output will be in the `dist/` folder.
+
+### Lint/Typecheck
+```sh
+npm run lint
+```
+
+## Project Structure
+```
+frontend/
+  src/
+    components/   # Reusable UI components
+    pages/        # Route-based pages (Dashboard, Home, etc.)
+    services/     # API clients (booking, user, property, etc.)
+    index.css     # Tailwind/global styles
+    main.tsx      # App entry point
+    App.tsx       # App layout and routes
+```
+
+## Environment Variables
+- `VITE_API_BASE_URL` — Backend API URL
+- `GEMINI_API_KEY` — (optional) Gemini AI key for assistant
+
+## Scripts
+- `npm run dev` — Start dev server
+- `npm run build` — Build for production
+- `npm run preview` — Preview production build
+- `npm run lint` — Typecheck and lint
+
+## License
+MIT
