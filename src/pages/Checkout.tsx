@@ -150,14 +150,16 @@ const Checkout: React.FC = () => {
   const pricing = React.useMemo(() => {
     if (!property) return { base: 0, service: 0, tax: 0, deposit: 0, discount: 0, total: 0 };
     
+    const baseInr = property.price * (property.price < 500 ? 84 : 1);
+    
     if (isPG) {
-      const base = property.price * 84; // Monthly rent
+      const base = baseInr; // Monthly rent
       const service = 1200;
-      const deposit = 25000;
+      const deposit = baseInr * 0.2;
       const discount = 3500;
       return { base, service, tax: 0, deposit, discount, total: base + service + deposit - discount };
     } else {
-      const base = property.price * 84 * nights;
+      const base = baseInr * nights;
       const service = 1500;
       const tax = base * 0.12;
       const discount = 0;

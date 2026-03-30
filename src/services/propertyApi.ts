@@ -34,7 +34,15 @@ class PropertyService {
   private static instance: PropertyService;
 
   private mapHotelToProperty(hotel: any): Property {
-    const imageList = Array.isArray(hotel.images) ? hotel.images : [];
+    const rawImages = Array.isArray(hotel.images) ? hotel.images : [];
+    // Handle both external URLs and locally uploaded AdminJS images
+    const imageList = rawImages.map((img: string) => {
+      if (typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:'))) return img;
+      // AdminJS might store just the filename or "public/uploads/file.jpg"
+      const cleanImg = typeof img === 'string' ? img.replace(/^public\/uploads\//, '') : '';
+      return cleanImg ? `http://localhost:4000/uploads/${cleanImg}` : '';
+    }).filter(Boolean);
+
     const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
 
     return {
@@ -42,13 +50,16 @@ class PropertyService {
       name: hotel.name ?? 'StayEase Property',
       location: hotel.location ?? 'Unknown location',
       rating: Number(hotel.rating ?? 4.2),
-      reviews: 100,
+      reviews: Number(hotel.reviewCount ?? 100),
       price: Number(hotel.price ?? 100),
       image: imageList[0] ?? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80',
-      category: 'Premium',
+      category: hotel.category ?? 'Premium',
       amenities,
+      fullAmenities: Array.isArray(hotel.fullAmenities) ? hotel.fullAmenities : undefined,
       description: hotel.description ?? 'Comfortable stay with modern amenities.',
-      images: imageList.length ? imageList : undefined
+      images: imageList.length ? imageList : undefined,
+      tiers: Array.isArray(hotel.tiers) ? hotel.tiers : undefined,
+      nearby: Array.isArray(hotel.nearby) ? hotel.nearby : undefined
     };
   }
   

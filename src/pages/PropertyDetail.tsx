@@ -91,8 +91,21 @@ const PropertyDetail: React.FC = () => {
   }
 
   const images = property.images || [property.image];
-  const monthlyInr = Number(property.price ?? 0) * 84;
-  const tiers = property.tiers && property.tiers.length > 0 ? property.tiers : buildDefaultTiers(monthlyInr);
+  const isPG = (() => {
+    const cat = property.category?.toLowerCase() || '';
+    const name = property.name.toLowerCase();
+    return cat.includes('student') || cat.includes('pg') || cat.includes('coliving') || name.includes('residence') || name.includes('sanctuary');
+  })();
+  const monthlyInr = Number(property.price ?? 0) * (Number(property.price) < 500 ? 84 : 1);
+  
+  const rawTiers = Array.isArray(property.tiers) ? property.tiers : [];
+  const validTiers = rawTiers.filter((t: any) => t && t.name && t.price);
+  const tiers = validTiers.length > 0 ? validTiers.map((t: any) => ({
+    name: t.name,
+    price: String(t.price).includes('₹') ? String(t.price) : formatInr(Number(t.price.replace(/[^\d.-]/g, '')) || monthlyInr),
+    availability: t.availability || 'AVAILABLE'
+  })) : buildDefaultTiers(monthlyInr);
+
   const activeTier = tiers[Math.min(selectedTier, tiers.length - 1)];
   const amenities = property.amenities && property.amenities.length > 0 ? property.amenities : ['WiFi', '24x7 Security', 'Housekeeping'];
   const nearby = property.nearby && property.nearby.length > 0
@@ -132,7 +145,7 @@ const PropertyDetail: React.FC = () => {
         <div className="flex items-center gap-4 md:gap-8">
            <div className="text-right hidden md:block">
              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Total Stay</p>
-             <p className="text-lg font-display font-bold text-slate-900 leading-none">{activeTier.price}<span className="text-xs font-serif italic text-slate-400 font-medium ml-1">per mo</span></p>
+             <p className="text-lg font-display font-bold text-slate-900 leading-none">{activeTier.price}<span className="text-xs font-serif italic text-slate-400 font-medium ml-1">{isPG ? 'per mo' : 'per night'}</span></p>
            </div>
            <button 
              onClick={handleBooking}
@@ -272,7 +285,7 @@ const PropertyDetail: React.FC = () => {
                 
                 <div className="relative z-10 flex justify-between items-end">
                   <div className="space-y-1">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Monthly Membership</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPG ? 'Monthly Membership' : 'Nightly Rate'}</p>
                    {/* Dynamic price from selected tier */}
                    <h3 className="text-5xl font-display font-bold text-slate-900 tracking-tighter uppercase">{activeTier.price}</h3>
                  </div>
@@ -349,16 +362,18 @@ const PropertyDetail: React.FC = () => {
                     <span className="text-[10px] font-bold text-brand-accent tabular-nums">{property.rating} ({property.reviews} reviews)</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
-                     <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Deposit</p>
-                      <p className="text-lg font-bold text-slate-900">{depositInr}</p>
-                     </div>
-                     <div className="space-y-1 text-right">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Maintenance</p>
-                      <p className="text-lg font-bold text-slate-900">{maintenanceInr}</p>
-                     </div>
-                  </div>
+                  {isPG && (
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                       <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Deposit</p>
+                        <p className="text-lg font-bold text-slate-900">{depositInr}</p>
+                       </div>
+                       <div className="space-y-1 text-right">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Maintenance</p>
+                        <p className="text-lg font-bold text-slate-900">{maintenanceInr}</p>
+                       </div>
+                    </div>
+                  )}
 
                   <button 
                      onClick={handleBooking}
@@ -382,7 +397,7 @@ const PropertyDetail: React.FC = () => {
       {/* Mobile Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-slate-100 p-4 flex items-center justify-between shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
          <div>
-           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">From {activeTier.price}/mo</p>
+           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">From {activeTier.price}{isPG ? '/mo' : '/night'}</p>
            <p className="text-xs font-bold text-emerald-600 uppercase tracking-[0.2em]">All Serviced Included</p>
          </div>
          <button 
