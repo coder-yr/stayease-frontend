@@ -14,7 +14,12 @@ import FlightCard from '../components/FlightCard';
 const FlightResults: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const searchParamsState = location.state as SearchParams;
+  const searchParamsState = location.state as SearchParams | undefined;
+  const hasSearchState = Boolean(
+    searchParamsState?.origin &&
+    searchParamsState?.destination &&
+    searchParamsState?.date
+  );
 
   const [flights, setFlights] = React.useState<Flight[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -69,10 +74,12 @@ const FlightResults: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const results = await flightApi.searchFlights(params);
+        const results = hasSearchState
+          ? await flightApi.searchFlights(params)
+          : await flightApi.getAllFlights();
         setFlights(results);
       } catch (err) {
-        setError('Failed to fetch real-time flight data. Please try again.');
+        setError('Failed to fetch flight data. Please try again.');
         console.error(err);
       } finally {
         setLoading(false);
@@ -80,7 +87,7 @@ const FlightResults: React.FC = () => {
     };
 
     fetchFlights();
-  }, [location.state]);
+  }, [location.state, hasSearchState]);
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden">
@@ -100,7 +107,7 @@ const FlightResults: React.FC = () => {
               {/* Trip Details Badge */}
               <div className="flex items-center gap-3 md:gap-4 scrollbar-hide overflow-x-auto whitespace-nowrap bg-white/5 backdrop-blur-md border border-white/10 w-max px-6 py-3 rounded-full shadow-xl">
                 <span className="text-[10px] md:text-xs font-bold text-brand-accent uppercase tracking-[0.2em]">
-                  {params.tripType === 'one' ? 'One Way' : 'Round Trip'}
+                  {hasSearchState ? (params.tripType === 'one' ? 'One Way' : 'Round Trip') : 'All Flights'}
                 </span>
                 <span className="w-1.5 h-1.5 bg-white/30 rounded-full shrink-0"></span>
                 <span className="text-[10px] md:text-xs font-bold text-white/80 uppercase tracking-widest">{params.date}</span>
@@ -115,10 +122,10 @@ const FlightResults: React.FC = () => {
                 <div className="space-y-2">
                   <p className="hidden md:block text-[11px] font-bold text-brand-accent uppercase tracking-[0.4em] drop-shadow-sm">Departure</p>
                   <h1 className="text-5xl md:text-[100px] font-display font-bold uppercase tracking-tighter leading-none drop-shadow-xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">
-                    {params.origin.match(/\(([^)]+)\)/)?.[1] || params.origin.substring(0,3).toUpperCase()}
+                    {hasSearchState ? (params.origin.match(/\(([^)]+)\)/)?.[1] || params.origin.substring(0,3).toUpperCase()) : 'ALL'}
                   </h1>
-                  <p className="md:hidden text-[9px] font-bold text-brand-accent uppercase tracking-[0.3em] mt-2">{params.origin.split(' (')[0]}</p>
-                  <p className="hidden md:block text-sm font-medium text-white/60 mt-2 font-serif italic">{params.origin.split(' (')[0]}</p>
+                  <p className="md:hidden text-[9px] font-bold text-brand-accent uppercase tracking-[0.3em] mt-2">{hasSearchState ? params.origin.split(' (')[0] : 'All Origins'}</p>
+                  <p className="hidden md:block text-sm font-medium text-white/60 mt-2 font-serif italic">{hasSearchState ? params.origin.split(' (')[0] : 'All Origins'}</p>
                 </div>
                 
                 {/* Flight Path Indicator */}
@@ -132,10 +139,10 @@ const FlightResults: React.FC = () => {
                 <div className="space-y-2 text-right md:text-left ml-auto md:ml-0">
                   <p className="hidden md:block text-[11px] font-bold text-brand-accent uppercase tracking-[0.4em] drop-shadow-sm">Destination</p>
                   <h1 className="text-5xl md:text-[100px] font-display font-bold uppercase tracking-tighter leading-none drop-shadow-xl text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">
-                    {params.destination.match(/\(([^)]+)\)/)?.[1] || params.destination.substring(0,3).toUpperCase()}
+                    {hasSearchState ? (params.destination.match(/\(([^)]+)\)/)?.[1] || params.destination.substring(0,3).toUpperCase()) : 'ALL'}
                   </h1>
-                  <p className="md:hidden text-[9px] font-bold text-brand-accent uppercase tracking-[0.3em] mt-2">{params.destination.split(' (')[0]}</p>
-                  <p className="hidden md:block text-sm font-medium text-white/60 mt-2 font-serif italic">{params.destination.split(' (')[0]}</p>
+                  <p className="md:hidden text-[9px] font-bold text-brand-accent uppercase tracking-[0.3em] mt-2">{hasSearchState ? params.destination.split(' (')[0] : 'All Destinations'}</p>
+                  <p className="hidden md:block text-sm font-medium text-white/60 mt-2 font-serif italic">{hasSearchState ? params.destination.split(' (')[0] : 'All Destinations'}</p>
                 </div>
               </div>
               

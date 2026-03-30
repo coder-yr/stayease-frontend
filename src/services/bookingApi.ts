@@ -3,7 +3,8 @@ import { apiPost, apiGet } from "./apiClient";
 export interface BookingCreateRequest {
   type: string;
   travelDate: string;
-  hotelId: string;
+  hotelId?: string;
+  flightData?: any;
   totalAmount: number;
   currency?: string;
   metadata?: {
@@ -14,6 +15,7 @@ export interface BookingCreateRequest {
     phoneNumber?: string;
     specialRequests?: string;
     tier?: string;
+    guests?: number;
     nights?: number;
     checkInDate?: string;
     checkOutDate?: string;

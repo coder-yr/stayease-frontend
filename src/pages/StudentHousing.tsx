@@ -48,16 +48,18 @@ const StudentHousing: React.FC = () => {
 
   const filters = ['All Residences', 'Female Only', 'Male Only', 'Co-ed Stays', 'Food Included', 'Near IIT'];
 
-  React.useEffect(() => {
-    const fetchPgs = async () => {
-      setLoading(true);
-      const data = await propertyApi.getProperties();
-      setAllPgs(data);
-      setFilteredPgs(data);
-      setLoading(false);
-    };
-    fetchPgs();
-  }, []);
+   React.useEffect(() => {
+      const fetchPgs = async () => {
+         setLoading(true);
+         const data = await propertyApi.getProperties();
+         // Only include properties with category 'PG' (case-insensitive)
+         const pgOnly = data.filter(p => p.category && p.category.toLowerCase() === 'pg');
+         setAllPgs(pgOnly);
+         setFilteredPgs(pgOnly);
+         setLoading(false);
+      };
+      fetchPgs();
+   }, []);
 
   // Filter Logic — all filtering handled here reactively via useEffect
   React.useEffect(() => {

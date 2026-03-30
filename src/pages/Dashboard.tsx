@@ -23,7 +23,8 @@ import {
   Smartphone,
   Edit,
   Save,
-  X
+  X,
+  Plane
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -96,9 +97,15 @@ const Dashboard: React.FC = () => {
         // Enrich bookings with property data
         const enrichedBookings = await Promise.all(
           myBookings.map(async (b) => {
+            if (b.type === 'flight') {
+                return b;
+            }
             try {
-              const property = await propertyApi.getPropertyById(b.hotelId);
-              return { ...b, property };
+              if (b.hotelId) {
+                const property = await propertyApi.getPropertyById(b.hotelId);
+                return { ...b, property };
+              }
+              return b;
             } catch (err) {
               console.warn(`⚠️ Failed to enrich booking ${b.id}:`, err);
               return b;
@@ -282,19 +289,34 @@ const Dashboard: React.FC = () => {
                        <p className="text-slate-400 font-serif italic">"Your story is just beginning—book your first sanctuary today."</p>
                     </div>
                   ) : (
-                    realBookings.slice(0, 4).map((b) => (
+                    realBookings.slice(0, 4).map((b) => {
+                      const isFlight = b.type === 'flight';
+                      const fData = (b as any).flightData;
+                      return (
                       <div key={b.id} className="bg-white rounded-[28px] overflow-hidden border border-slate-100 shadow-sm flex gap-4 p-4">
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0">
-                          <img 
-                            src={b.property?.image || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400'} 
-                            alt={b.property?.name} 
-                            className="w-full h-full object-cover" 
-                            loading="lazy" 
-                          />
+                        <div className={`w-20 h-20 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${isFlight ? 'bg-slate-50' : ''}`}>
+                          {isFlight ? (
+                            <img src={fData?.logo || 'https://images.unsplash.com/photo-1436491865332-7a61a109c0f3?auto=format&fit=crop&w=100'} className="w-12 h-12 object-contain" />
+                          ) : (
+                            <img 
+                              src={b.property?.image || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400'} 
+                              alt={b.property?.name} 
+                              className="w-full h-full object-cover" 
+                              loading="lazy" 
+                            />
+                          )}
                         </div>
-                        <div className="flex-1 space-y-1">
-                          <h3 className="text-sm font-bold text-slate-900 line-clamp-1">{b.property?.name || 'StayEase Sanctuary'}</h3>
-                          <div className="flex items-center gap-1 text-xs text-slate-400"><MapPin className="w-3 h-3" aria-hidden="true" /> {b.property?.location || 'Unknown location'}</div>
+                        <div className="flex-1 space-y-1 flex flex-col justify-center">
+                          <h3 className="text-sm font-bold text-slate-900 line-clamp-1">
+                            {isFlight ? `${fData?.departure?.iata || 'SRC'} ➔ ${fData?.arrival?.iata || 'DST'} Flight` : (b.property?.name || 'StayEase Sanctuary')}
+                          </h3>
+                          <div className="flex items-center gap-1 text-xs text-slate-400">
+                            {isFlight ? (
+                              <><Plane className="w-3 h-3" aria-hidden="true" /> {fData?.airline || 'Airline'}</>
+                            ) : (
+                              <><MapPin className="w-3 h-3" aria-hidden="true" /> {b.property?.location || 'Unknown location'}</>
+                            )}
+                          </div>
                           <div className="flex items-center justify-between mt-2">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{new Date(b.travelDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                             <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${b.status === 'confirmed' || b.status === 'Confirmed' ? 'bg-emerald-50 text-brand-accent' : 'bg-rose-50 text-rose-500'}`}>
@@ -303,7 +325,8 @@ const Dashboard: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>
@@ -334,27 +357,45 @@ const Dashboard: React.FC = () => {
                      </button>
                   </div>
                 ) : (
-                  realBookings.map((booking) => (
+                  realBookings.map((booking) => {
+                    const isFlight = booking.type === 'flight';
+                    const fData = (booking as any).flightData;
+                    
+                    return (
                     <motion.div
                       key={booking.id}
                       whileHover={{ y: -8 }}
                       className="bg-white rounded-4xl overflow-hidden border border-slate-100 shadow-sm group cursor-pointer"
                     >
-                      <div className="h-48 relative overflow-hidden">
-                        <img 
-                          src={booking.property?.image || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400'} 
-                          alt={booking.property?.name} 
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                          loading="lazy" 
-                        />
-                        <div className={`absolute top-4 left-4 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${booking.status === 'confirmed' || booking.status === 'Confirmed' ? 'bg-brand-accent text-white' : 'bg-rose-600 text-white'}`}>
+                      <div className="h-48 relative overflow-hidden flex items-center justify-center bg-slate-50">
+                        {isFlight ? (
+                           <div className="text-center w-full px-8 relative z-10 transition-transform duration-700 group-hover:scale-110">
+                              <div className="flex items-center justify-between mb-2">
+                                 <div className="text-3xl font-display font-bold text-slate-900">{fData?.departure?.iata || 'SRC'}</div>
+                                 <Plane className="w-8 h-8 text-brand-accent mx-4 opacity-50" />
+                                 <div className="text-3xl font-display font-bold text-slate-900">{fData?.arrival?.iata || 'DST'}</div>
+                              </div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{fData?.airline || 'Airline'}</div>
+                           </div>
+                        ) : (
+                          <img 
+                            src={booking.property?.image || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400'} 
+                            alt={booking.property?.name} 
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                            loading="lazy" 
+                          />
+                        )}
+                        <div className={`absolute top-4 left-4 px-3 py-1 z-20 rounded-lg text-[10px] font-bold uppercase tracking-widest ${booking.status === 'confirmed' || booking.status === 'Confirmed' ? 'bg-brand-accent text-white' : 'bg-rose-600 text-white'}`}>
                           {booking.status}
                         </div>
                       </div>
                       <div className="p-6 space-y-4">
                         <div>
-                          <h3 className="text-lg font-bold text-slate-900 line-clamp-1">{booking.property?.name || 'StayEase Sanctuary'}</h3>
-                          <div className="flex items-center gap-1 text-xs text-slate-400"><MapPin className="w-3 h-3" aria-hidden="true" /> {booking.property?.location || 'Unknown location'}</div>
+                          <h3 className="text-lg font-bold text-slate-900 line-clamp-1">{isFlight ? `Flight to ${fData?.arrival?.city || 'Destination'}` : (booking.property?.name || 'StayEase Sanctuary')}</h3>
+                          <div className="flex items-center gap-1 text-xs text-slate-400">
+                            {isFlight ? <Plane className="w-3 h-3" /> : <MapPin className="w-3 h-3" aria-hidden="true" />}
+                            {isFlight ? (fData?.duration || 'Unknown duration') : (booking.property?.location || 'Unknown location')}
+                          </div>
                         </div>
                         <div className="flex justify-between items-center pt-4 border-t border-slate-50">
                           <div>
@@ -367,7 +408,7 @@ const Dashboard: React.FC = () => {
                         </div>
                       </div>
                     </motion.div>
-                  ))
+                  )})
                 )}
               </div>
             </motion.div>

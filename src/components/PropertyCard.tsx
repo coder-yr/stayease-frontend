@@ -42,7 +42,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
           referrerPolicy="no-referrer"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent opacity-60" aria-hidden="true" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-transparent to-transparent opacity-40" aria-hidden="true" />
         
         {/* Floating Badges */}
         <div className="absolute top-8 left-8 flex flex-col gap-3">
@@ -67,23 +67,27 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
           }}
           aria-label={isLiked ? `Remove ${property.name} from saved` : `Save ${property.name}`}
           aria-pressed={isLiked}
-          className={`absolute top-8 right-8 w-12 h-12 backdrop-blur-2xl border border-white/20 rounded-full transition-all shadow-2xl flex items-center justify-center ${isLiked ? 'bg-rose-500 text-white border-rose-500' : 'bg-white/10 text-white hover:bg-white/30'}`}
+          className={`absolute top-8 right-8 w-12 h-12 backdrop-blur-2xl border border-white/20 rounded-full transition-all shadow-2xl flex items-center justify-center ${isLiked ? 'bg-rose-500 text-white border-rose-500' : 'bg-white/10 text-white hover:bg-white/30 hover:scale-110 active:scale-95'}`}
         >
           <Heart className={`w-5 h-5 transition-all ${isLiked ? 'fill-white' : ''}`} aria-hidden="true" />
         </button>
-
-        <div className="absolute bottom-8 left-8 right-8">
-          <div className="flex items-center gap-2 text-white/90 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">
-             <MapPin className="w-3.5 h-3.5 text-brand-accent" aria-hidden="true" />
-             {property.location}
-          </div>
-          <h3 className="text-2xl font-display font-bold text-white tracking-tight leading-none">{property.name}</h3>
-        </div>
       </div>
 
       {/* Content Area */}
-      <div className="p-10 flex flex-col justify-between flex-1">
+      <div className="p-10 flex flex-col justify-between flex-1 bg-white relative">
         <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-3xl font-display font-bold text-slate-900 tracking-tight leading-[1.1] group-hover:text-brand-accent transition-colors line-clamp-2">
+                {property.name}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+               <MapPin className="w-4 h-4 text-brand-accent flex-shrink-0" aria-hidden="true" />
+               <span className="truncate">{property.location}</span>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2" aria-label="Amenities">
             {property.amenities.slice(0, 3).map((amenity, i) => (
               <div key={i} className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[8px] font-bold text-slate-500 uppercase tracking-widest group-hover:bg-brand-accent/5 group-hover:border-brand-accent/20 group-hover:text-brand-accent transition-colors">

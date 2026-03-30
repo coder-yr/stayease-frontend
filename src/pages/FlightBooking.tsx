@@ -17,6 +17,7 @@ import {
 import { motion } from 'motion/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Flight } from '../services/flightApi';
+import { bookingApi } from '../services/bookingApi';
 
 const FlightBooking: React.FC = () => {
   const navigate = useNavigate();
@@ -65,6 +66,14 @@ const FlightBooking: React.FC = () => {
   const [discount, setDiscount] = React.useState(0);
   const [promoStatus, setPromoStatus] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Form State
+  const [title, setTitle] = React.useState('Mr.');
+  const [firstName, setFirstName] = React.useState('');
+  const [lastName, setLastName] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
   const baseFare = parseInt(flightDetails.fare.replace(/[^\d]/g, ''));
   const taxes = 760;
   const addonCost = (addons.protection ? 499 : 0) + (addons.fastPass ? 199 : 0);
@@ -81,6 +90,43 @@ const FlightBooking: React.FC = () => {
     } else {
       setDiscount(0);
       setPromoStatus({ type: 'error', message: `"${promoCode}" is not a valid promo code.` });
+    }
+  };
+
+  const handleBooking = async () => {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim()) {
+      alert("Please fill in all traveler details (Name, Email, Phone).");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        type: 'flight',
+        travelDate: new Date().toISOString(), // Backend expects a proper ISO date
+        totalAmount: totalAmount,
+        currency: 'INR',
+        flightData: {
+            ...flightDetails,
+            travelerCount,
+            traveler: { title, firstName, lastName, email, phone },
+            addons,
+            discount
+        },
+        metadata: {
+            name: `${title} ${firstName} ${lastName}`,
+            email: email,
+            phoneNumber: phone,
+        }
+      };
+
+      const res = await bookingApi.createBooking(payload);
+      navigate(`/booking-success/${res.id}`, { state: { type: 'flight' } });
+    } catch (error) {
+      console.error("Booking failed:", error);
+      alert("Something went wrong while confirming your booking. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -162,7 +208,11 @@ const FlightBooking: React.FC = () => {
                 <div className="md:col-span-3 space-y-3">
                   <label className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-2">Title</label>
                   <div className="relative">
-                    <select className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[32px] px-6 md:px-8 py-4 md:py-6 text-xs md:text-sm font-bold uppercase tracking-widest outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent appearance-none">
+                    <select 
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[32px] px-6 md:px-8 py-4 md:py-6 text-xs md:text-sm font-bold uppercase tracking-widest outline-none focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent appearance-none"
+                    >
                       <option>Mr.</option>
                       <option>Ms.</option>
                       <option>Dr.</option>
@@ -174,6 +224,8 @@ const FlightBooking: React.FC = () => {
                   <label className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-2">First Name</label>
                   <input 
                     type="text" 
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
                     placeholder="e.g. ARYA"
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[32px] px-6 md:px-8 py-4 md:py-6 text-xs md:text-sm font-bold uppercase tracking-widest focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent transition-all outline-none"
                   />
@@ -182,6 +234,8 @@ const FlightBooking: React.FC = () => {
                   <label className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-2">Last Name</label>
                   <input 
                     type="text" 
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
                     placeholder="e.g. STARK"
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[32px] px-6 md:px-8 py-4 md:py-6 text-xs md:text-sm font-bold uppercase tracking-widest focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent transition-all outline-none"
                   />
@@ -195,6 +249,8 @@ const FlightBooking: React.FC = () => {
                     <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-accent" />
                     <input 
                       type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="YOU@EXAMPLE.COM"
                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[32px] pl-16 pr-8 py-4 md:py-6 text-xs md:text-sm font-bold uppercase tracking-widest focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent transition-all outline-none"
                     />
@@ -206,6 +262,8 @@ const FlightBooking: React.FC = () => {
                     <Smartphone className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-accent" />
                     <input 
                       type="tel" 
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
                       placeholder="+91"
                       className="w-full bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[32px] pl-16 pr-8 py-4 md:py-6 text-xs md:text-sm font-bold tabular-nums tracking-widest focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent transition-all outline-none"
                     />
@@ -274,12 +332,13 @@ const FlightBooking: React.FC = () => {
           {/* Desktop Payment Button */}
           <div className="hidden lg:block pt-16 border-t border-slate-100">
             <button 
-              onClick={() => navigate('/booking-success/flight')}
-              className="w-full bg-slate-900 text-white p-10 rounded-[48px] font-bold text-[16px] tracking-[0.5em] uppercase hover:bg-brand-accent transition-all duration-700 flex items-center justify-center gap-8 shadow-2xl hover:shadow-brand-accent/30 active:scale-95 group"
+              onClick={handleBooking}
+              disabled={isSubmitting}
+              className={`w-full text-white p-10 rounded-[48px] font-bold text-[16px] tracking-[0.5em] uppercase hover:bg-brand-accent transition-all duration-700 flex items-center justify-center gap-8 shadow-2xl hover:shadow-brand-accent/30 active:scale-95 group ${isSubmitting ? 'bg-slate-400 cursor-not-allowed opacity-70' : 'bg-slate-900'}`}
               aria-label={`Pay ₹${totalAmount.toLocaleString()} and confirm booking`}
             >
-              PROCEED TO PAYMENT
-              <CreditCard className="w-8 h-8 group-hover:translate-x-2 transition-transform duration-500" aria-hidden="true" />
+              {isSubmitting ? 'PROCESSING...' : 'PROCEED TO PAYMENT'}
+              {!isSubmitting && <CreditCard className="w-8 h-8 group-hover:translate-x-2 transition-transform duration-500" aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -382,8 +441,9 @@ const FlightBooking: React.FC = () => {
       {/* Floating Action Button (Mobile Only) */}
       <div className="lg:hidden fixed bottom-24 left-4 right-4 z-40">
         <button 
-          onClick={() => navigate('/booking-success/flight')}
-          className="w-full bg-slate-900 text-white rounded-[32px] p-6 shadow-2xl flex items-center justify-between active:scale-[0.98] transition-all"
+          onClick={handleBooking}
+          disabled={isSubmitting}
+          className={`w-full text-white rounded-[32px] p-6 shadow-2xl flex items-center justify-between active:scale-[0.98] transition-all ${isSubmitting ? 'bg-slate-500 opacity-70 cursor-not-allowed' : 'bg-slate-900'}`}
           aria-label={`Pay ₹${totalAmount.toLocaleString()} and confirm booking`}
         >
           <div className="text-left">
@@ -391,10 +451,12 @@ const FlightBooking: React.FC = () => {
             <p className="text-2xl font-display font-bold tabular-nums">₹{totalAmount.toLocaleString()}</p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Pay Now</span>
-            <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center">
-              <ArrowRight className="w-4 h-4" />
-            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.4em]">{isSubmitting ? 'WAIT...' : 'Pay Now'}</span>
+            {!isSubmitting && (
+              <div className="w-10 h-10 rounded-full bg-brand-accent flex items-center justify-center">
+                <ArrowRight className="w-4 h-4" />
+              </div>
+            )}
           </div>
         </button>
       </div>

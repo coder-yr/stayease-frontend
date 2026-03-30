@@ -83,7 +83,6 @@ const Navbar: React.FC = () => {
     { name: 'Flights', path: '/flights' },
     { name: 'Hotels', path: '/hotels' },
     { name: 'PG / Rooms', path: '/pg' },
-    { name: 'My Bookings', path: '/dashboard' },
   ];
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -138,7 +137,7 @@ const Navbar: React.FC = () => {
           </div>
 
           {/* Soft Search Bar */}
-          <div className="hidden xl:flex items-center flex-1 max-w-[280px] mx-6">
+          <div className="hidden xl:flex items-center flex-1 max-w-[400px] mx-6">
             <div className="relative w-full group/search">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-3.5 h-3.5 group-focus-within/search:text-[#10b981] transition-colors" aria-hidden="true" />
               <input 

@@ -55,10 +55,6 @@ const PropertyDetail: React.FC = () => {
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [checkIn, checkOut]);
 
-  const handleBooking = () => {
-    navigate(`/checkout/${property?.id}?checkIn=${checkIn}&checkOut=${checkOut}`);
-  };
-
   React.useEffect(() => {
     const fetchProperty = async () => {
       if (!id) return;
@@ -107,6 +103,18 @@ const PropertyDetail: React.FC = () => {
   })) : buildDefaultTiers(monthlyInr);
 
   const activeTier = tiers[Math.min(selectedTier, tiers.length - 1)];
+
+  const handleBooking = () => {
+    if (!property?.id) return;
+    const params = new URLSearchParams({
+      checkIn,
+      checkOut,
+      tier: activeTier.name,
+      guests: '1'
+    });
+    navigate(`/checkout/${property.id}?${params.toString()}`);
+  };
+
   const amenities = property.amenities && property.amenities.length > 0 ? property.amenities : ['WiFi', '24x7 Security', 'Housekeeping'];
   const nearby = property.nearby && property.nearby.length > 0
     ? property.nearby

@@ -49,7 +49,19 @@ export interface SearchParams {
  */
 class FlightService {
   private static instance: FlightService;
-  private readonly AMADEUS_API_URL = 'https://test.api.amadeus.com/v2/shopping/flight-offers';
+
+  private readonly cityIataMap: Record<string, string> = {
+    bengaluru: 'BLR',
+    bangalore: 'BLR',
+    mumbai: 'BOM',
+    delhi: 'DEL',
+    hyderabad: 'HYD',
+    chennai: 'MAA',
+    kolkata: 'CCU',
+    goa: 'GOI',
+    pune: 'PNQ',
+    ahmedabad: 'AMD'
+  };
 
   private toTime(value: string | Date | undefined): string {
     if (!value) return '00:00';
@@ -67,6 +79,40 @@ class FlightService {
       return `${hours}h ${mins}m`;
     }
     return durationRaw;
+  }
+
+  private normalizeDateForApi(value: string): string {
+    const raw = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      const yyyy = parsed.getFullYear();
+      const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+      const dd = String(parsed.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private normalizeClassForApi(value: string): 'ECONOMY' | 'PREMIUM_ECONOMY' | 'BUSINESS' | 'FIRST' {
+    const normalized = value.trim().toUpperCase().replace(/\s+/g, '_');
+    if (normalized === 'ECONOMY' || normalized === 'PREMIUM_ECONOMY' || normalized === 'BUSINESS' || normalized === 'FIRST') {
+      return normalized;
+    }
+    if (normalized === 'PREMIUM') return 'PREMIUM_ECONOMY';
+    return 'ECONOMY';
+  }
+
+  private toIataCode(value: string): string {
+    const match = value.match(/\(([^)]+)\)/)?.[1]?.trim().toUpperCase();
+    if (match && /^[A-Z]{3}$/.test(match)) return match;
+
+    const cityKey = value.split('(')[0].trim().toLowerCase();
+    if (this.cityIataMap[cityKey]) return this.cityIataMap[cityKey];
+
+    return value.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase();
   }
 
   private mapApiFlight(item: any, idx: number, requestedClass: string): Flight {
@@ -113,81 +159,23 @@ class FlightService {
   public async searchFlights(params: SearchParams): Promise<Flight[]> {
     console.log('Searching flights for:', params);
 
-    const originCode = params.origin.match(/\(([^)]+)\)/)?.[1] || params.origin.substring(0, 3).toUpperCase();
-    const destCode = params.destination.match(/\(([^)]+)\)/)?.[1] || params.destination.substring(0, 3).toUpperCase();
+    const originCode = this.toIataCode(params.origin);
+    const destCode = this.toIataCode(params.destination);
+    const apiDate = this.normalizeDateForApi(params.date);
+    const apiClass = this.normalizeClassForApi(params.class);
 
-    try {
-      const data = await apiGet<{ source: string; items: any[] }>(
-        `/flights?source=${encodeURIComponent(originCode)}&destination=${encodeURIComponent(destCode)}&date=${encodeURIComponent(params.date)}&adults=${params.adults}&travelClass=${encodeURIComponent(params.class)}`
-      );
+    const data = await apiGet<{ source: string; items: any[] }>(
+      `/flights?source=${encodeURIComponent(originCode)}&destination=${encodeURIComponent(destCode)}&date=${encodeURIComponent(apiDate)}&adults=${params.adults}&travelClass=${encodeURIComponent(apiClass)}`
+    );
 
-      const items = Array.isArray(data.items) ? data.items : [];
-      if (items.length) {
-        return items.map((item, idx) => this.mapApiFlight(item, idx, params.class));
-      }
-    } catch (error) {
-      console.warn('Backend flight API unavailable, using mock flights.', error);
-    }
+    const items = Array.isArray(data.items) ? data.items : [];
+    return items.map((item, idx) => this.mapApiFlight(item, idx, params.class));
+  }
 
-    /* 
-    // REAL API IMPLEMENTATION EXAMPLE (Amadeus)
-    try {
-      const response = await fetch(`${this.AMADEUS_API_URL}?originLocationCode=${params.origin}&destinationLocationCode=${params.destination}&departureDate=${params.date}&adults=${params.adults}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.AMADEUS_ACCESS_TOKEN}`
-        }
-      });
-      const data = await response.json();
-      return this.transformAmadeusToFlight(data.data);
-    } catch (error) {
-       console.error("API Fetch Error:", error);
-    }
-    */
-
-    // HIGH-FIDELITY DYNAMIC MOCK DATA (Returns variations based on search)
-    // In a real scenario, this would be replaced with actual transformed API data
-    const airlines = [
-      { name: 'Air India', logo: 'https://images.unsplash.com/photo-1610337673044-720471f83677?auto=format&fit=crop&w=100&q=80' },
-      { name: 'IndiGo', logo: 'https://images.unsplash.com/photo-1436491865332-7a61a109c0f3?auto=format&fit=crop&w=100&q=80' },
-      { name: 'Vistara', logo: 'https://images.unsplash.com/photo-1544015759-137fb939308e?auto=format&fit=crop&w=100&q=80' },
-      { name: 'Akasa Air', logo: 'https://images.unsplash.com/photo-1556388158-158ea5ccacbd?auto=format&fit=crop&w=100&q=80' }
-    ];
-
-    return airlines.map((airline, idx) => {
-      const basePrice = 4000 + (Math.random() * 8000);
-      const hour = 5 + (idx * 3);
-      const depTime = `${hour.toString().padStart(2, '0')}:${(Math.random() > 0.5 ? '15' : '45')}`;
-      const durationHours = 1 + Math.floor(Math.random() * 3);
-      const durationMinutes = Math.random() > 0.5 ? '30' : '45';
-      
-      const arrivalHour = (hour + durationHours) % 24;
-      const arrTime = `${arrivalHour.toString().padStart(2, '0')}:${(Math.random() > 0.5 ? '05' : '25')}`;
-
-      const tags = ['Cheapest', 'Fastest', 'Best Experience', 'Top Rated'];
-
-      return {
-        id: `FL-${idx}-${Date.now()}`,
-        airline: airline.name,
-        logo: airline.logo,
-        departure: {
-          time: depTime,
-          city: params.origin.split(' (')[0],
-          airport: `${params.origin.split(' (')[0]} Int'l`,
-          iata: originCode
-        },
-        arrival: {
-          time: arrTime,
-          city: params.destination.split(' (')[0],
-          airport: `${params.destination.split(' (')[0]} Int'l`,
-          iata: destCode
-        },
-        duration: `${durationHours}h ${durationMinutes}m`,
-        stops: Math.random() > 0.7 ? '1 Stop' : 'Non-stop',
-        price: `₹${Math.round(basePrice).toLocaleString()}`,
-        tag: tags[idx % tags.length],
-        class: params.class
-      };
-    });
+  public async getAllFlights(): Promise<Flight[]> {
+    const data = await apiGet<{ source: string; items: any[] }>(`/flights/all`);
+    const items = Array.isArray(data.items) ? data.items : [];
+    return items.map((item, idx) => this.mapApiFlight(item, idx, String(item.cabinClass ?? 'ECONOMY')));
   }
 
   public async getFeaturedDeals(): Promise<FeaturedDeal[]> {

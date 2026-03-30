@@ -21,6 +21,40 @@ import { bookingApi } from '../services/bookingApi';
 import { getAccessToken } from '../services/apiClient';
 import Toast, { useToast } from '../components/Toast';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toIsoDate = (date: Date): string => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0];
+};
+
+const addDays = (isoDate: string, days: number): string => {
+  const d = new Date(`${isoDate}T00:00:00`);
+  return toIsoDate(new Date(d.getTime() + days * DAY_MS));
+};
+
+const isValidIsoDate = (value: string | null): value is string => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const time = new Date(`${value}T00:00:00`).getTime();
+  return Number.isFinite(time);
+};
+
+const normalizeBookingDates = (checkInRaw: string | null, checkOutRaw: string | null) => {
+  const defaultCheckIn = addDays(toIsoDate(new Date()), 1);
+  const checkIn = isValidIsoDate(checkInRaw) ? checkInRaw : defaultCheckIn;
+
+  if (isValidIsoDate(checkOutRaw)) {
+    const checkInTs = new Date(`${checkIn}T00:00:00`).getTime();
+    const checkOutTs = new Date(`${checkOutRaw}T00:00:00`).getTime();
+    if (checkOutTs > checkInTs) {
+      return { checkIn, checkOut: checkOutRaw };
+    }
+  }
+
+  return { checkIn, checkOut: addDays(checkIn, 7) };
+};
+
 // Moved to top to avoid hoisting issues
 const GraduationCap = ({ className }: { className?: string }) => (
   <svg 
@@ -55,10 +89,16 @@ const Checkout: React.FC = () => {
   
   const [searchParams] = useSearchParams();
   
-  // Booking dates from URL
-  const [checkInDate] = React.useState(searchParams.get('checkIn') || '2026-10-24');
-  const [checkOutDate] = React.useState(searchParams.get('checkOut') || '2026-10-31');
-  const [tier] = React.useState('deluxe'); 
+  // Booking values from user selection (PropertyDetail/search query)
+  const { checkIn: normalizedCheckIn, checkOut: normalizedCheckOut } = React.useMemo(
+    () => normalizeBookingDates(searchParams.get('checkIn'), searchParams.get('checkOut')),
+    [searchParams]
+  );
+  const selectedGuests = React.useMemo(() => {
+    const parsed = Number(searchParams.get('guests'));
+    if (!Number.isFinite(parsed) || parsed < 1) return 1;
+    return Math.min(10, Math.floor(parsed));
+  }, [searchParams]);
 
   // Step 2 form state
   const [form, setForm] = React.useState({ 
@@ -140,12 +180,17 @@ const Checkout: React.FC = () => {
     return cat.includes('student') || cat.includes('pg') || cat.includes('coliving') || name.includes('residence') || name.includes('sanctuary');
   }, [property]);
 
+  const selectedTier = React.useMemo(
+    () => searchParams.get('tier')?.trim() || (isPG ? 'Essential Suite' : 'Standard'),
+    [searchParams, isPG]
+  );
+
   const nights = React.useMemo(() => {
-    const start = new Date(checkInDate);
-    const end = new Date(checkOutDate);
+    const start = new Date(normalizedCheckIn);
+    const end = new Date(normalizedCheckOut);
     const diff = end.getTime() - start.getTime();
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [checkInDate, checkOutDate]);
+  }, [normalizedCheckIn, normalizedCheckOut]);
 
   const pricing = React.useMemo(() => {
     if (!property) return { base: 0, service: 0, tax: 0, deposit: 0, discount: 0, total: 0 };
@@ -239,12 +284,12 @@ const Checkout: React.FC = () => {
     setSubmitting(true);
     try {
       setHasAuthToken(!!getAccessToken());
-      const diffTime = Math.abs(new Date(checkOutDate).getTime() - new Date(checkInDate).getTime());
+      const diffTime = Math.abs(new Date(normalizedCheckOut).getTime() - new Date(normalizedCheckIn).getTime());
       const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
       const booking = await bookingApi.createBooking({
         type: isPG ? 'pg' : 'hotel',
-        travelDate: new Date(checkInDate).toISOString(),
+        travelDate: new Date(normalizedCheckIn).toISOString(),
         hotelId: id!,
         totalAmount,
         currency: 'INR',
@@ -258,10 +303,11 @@ const Checkout: React.FC = () => {
             phoneNumber: form.phoneNumber,
             specialRequests: form.specialRequests,
           }),
-          tier,
+          tier: selectedTier,
+          guests: selectedGuests,
           nights,
-          checkInDate: checkInDate,
-          checkOutDate: checkOutDate
+          checkInDate: normalizedCheckIn,
+          checkOutDate: normalizedCheckOut
         }
       });
 
@@ -396,14 +442,24 @@ const Checkout: React.FC = () => {
                         <div className="space-y-2">
                           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Check-in</span>
                           <div className="text-lg font-bold text-slate-900">
-                            {new Date(checkInDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {new Date(normalizedCheckIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
                         <div className="space-y-2">
                           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Check-out</span>
                           <div className="text-lg font-bold text-slate-900">
-                            {new Date(checkOutDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {new Date(normalizedCheckOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-200/50">
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Selected Tier</span>
+                          <div className="text-lg font-bold text-slate-900">{selectedTier}</div>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Guests</span>
+                          <div className="text-lg font-bold text-slate-900">{selectedGuests}</div>
                         </div>
                       </div>
                     </div>
