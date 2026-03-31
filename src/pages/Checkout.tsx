@@ -149,7 +149,7 @@ const Checkout: React.FC = () => {
       console.log(
         '%cTo test the booking flow, you need an auth token:\n\n' +
         '1️⃣  Get a token from signup:\n' +
-        '   curl -X POST http://localhost:4000/api/auth/signup \\\n' +
+        '   curl -X POST https://stayease-backend-ma1c.onrender.com/api/auth/signup \\\n' +
         '     -H "Content-Type: application/json" \\\n' +
         '     -d "{\n' +
         '       \\"email\\": \\"test@university.edu\\",\n' +
@@ -160,7 +160,7 @@ const Checkout: React.FC = () => {
         '3️⃣  Paste in the console:\n' +
         '   localStorage.setItem("accessToken", "your_token_here")\n\n' +
         '4️⃣  Reload this page and complete the booking!\n\n' +
-        'Or navigate directly to: http://localhost:5173/checkout/cmnbl1zds0000vp5choiit8eb',
+        'Or navigate directly to: https://stayease-frontend.vercel.app/checkout/cmnbl1zds0000vp5choiit8eb',
         'font-size: 12px; color: #666; line-height: 1.6; white-space: pre-wrap; font-family: monospace;'
       );
       addToast('error', 'Authentication Required', 'You need to sign in first. See console for testing instructions.');
