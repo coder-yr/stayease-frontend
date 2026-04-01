@@ -40,7 +40,7 @@ class PropertyService {
       if (typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:'))) return img;
       // AdminJS might store just the filename or "public/uploads/file.jpg"
       const cleanImg = typeof img === 'string' ? img.replace(/^public\/uploads\//, '') : '';
-      return cleanImg ? `https://stayease-backend-ma1c.onrender.com/uploads/${cleanImg}` : '';
+      return cleanImg ? `http://localhost:4000/uploads/${cleanImg}` : '';
     }).filter(Boolean);
 
     const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];

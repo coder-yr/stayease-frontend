@@ -41,8 +41,8 @@ const Home: React.FC = () => {
   const categories = [
     { label: 'HOTELS', icon: Hotel, color: 'text-brand-accent', path: '/hotels' },
     { label: 'FLIGHTS', icon: Plane, color: 'text-orange-500', path: '/flights' },
-    { label: 'TRAINS', icon: Train, color: 'text-rose-500', path: '/search' },
-    { label: 'BUSES', icon: Bus, color: 'text-blue-500', path: '/search' },
+    { label: 'TRAINS', icon: Train, color: 'text-rose-500', path: '/trains' },
+    { label: 'BUSES', icon: Bus, color: 'text-blue-500', path: '/buses' },
     { label: 'PG/ROOMS', icon: HomeIcon, color: 'text-slate-600', path: '/pg' },
     { label: 'ACTIVITIES', icon: LayoutGrid, color: 'text-slate-600', path: '/search' },
   ];

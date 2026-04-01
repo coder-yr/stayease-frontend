@@ -122,9 +122,24 @@ const FlightBooking: React.FC = () => {
 
       const res = await bookingApi.createBooking(payload);
       navigate(`/booking-success/${res.id}`, { state: { type: 'flight' } });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Booking failed:", error);
-      alert("Something went wrong while confirming your booking. Please try again.");
+      let errMsg = "Something went wrong while confirming your booking. Please try again.";
+      try {
+        const errorData = JSON.parse(error.message);
+        if (errorData && errorData.message) {
+          errMsg = errorData.message;
+        }
+      } catch (e) {
+        if (error.response?.data?.message) {
+          errMsg = error.response.data.message;
+        } else if (typeof error === 'string') {
+          errMsg = error;
+        } else if (error.message) {
+          errMsg = error.message;
+        }
+      }
+      alert(errMsg);
     } finally {
       setIsSubmitting(false);
     }

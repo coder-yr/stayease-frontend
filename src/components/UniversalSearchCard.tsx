@@ -32,8 +32,8 @@ const UniversalSearchCard: React.FC<UniversalSearchCardProps> = ({
   const tabs = [
     { id: 'flights', label: 'Flights', icon: Plane, path: '/flights' },
     { id: 'hotels', label: 'Hotels', icon: Hotel, path: '/hotels' },
-    { id: 'trains', label: 'Trains', icon: Train, path: '/search' },
-    { id: 'buses', label: 'Buses', icon: Bus, path: '/search' },
+    { id: 'trains', label: 'Trains', icon: Train, path: '/trains' },
+    { id: 'buses', label: 'Buses', icon: Bus, path: '/buses' },
     { id: 'pg', label: 'PG/Rooms', icon: HomeIcon, path: '/pg' },
   ];
 
@@ -74,6 +74,8 @@ const UniversalSearchCard: React.FC<UniversalSearchCardProps> = ({
           },
         });
       } else if (activeTab === 'hotels') navigate('/hotels');
+      else if (activeTab === 'trains') navigate('/trains', { state: { source: searchParams.origin, destination: searchParams.destination, date: searchParams.date } });
+      else if (activeTab === 'buses') navigate('/buses', { state: { source: searchParams.origin, destination: searchParams.destination, date: searchParams.date } });
       else if (activeTab === 'pg') navigate('/pg');
       else navigate('/search');
     }
@@ -140,7 +142,15 @@ const UniversalSearchCard: React.FC<UniversalSearchCardProps> = ({
           <div className="space-y-3 text-left relative">
             <label className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-2">Destination</label>
             <div className="relative group">
-              <Plane className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary/50 w-5 h-5 rotate-45 group-focus-within:text-brand-primary transition-colors" />
+              {activeTab === 'flights' ? (
+                <Plane className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary/50 w-5 h-5 rotate-45 group-focus-within:text-brand-primary transition-colors" />
+              ) : activeTab === 'trains' ? (
+                <Train className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary/50 w-5 h-5 group-focus-within:text-brand-primary transition-colors" />
+              ) : activeTab === 'buses' ? (
+                <Bus className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary/50 w-5 h-5 group-focus-within:text-brand-primary transition-colors" />
+              ) : (
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-primary/50 w-5 h-5 group-focus-within:text-brand-primary transition-colors" />
+              )}
               <input 
                 type="text" 
                 value={searchParams.destination}

@@ -288,7 +288,7 @@ const Checkout: React.FC = () => {
       const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
       const booking = await bookingApi.createBooking({
-        type: isPG ? 'pg' : 'hotel',
+        type: 'hotel',
         travelDate: new Date(normalizedCheckIn).toISOString(),
         hotelId: id!,
         totalAmount,
@@ -501,20 +501,19 @@ const Checkout: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    {isPG ? (
-                      [
-                        { label: 'Full Name', key: 'name', type: 'text', placeholder: 'John Doe' },
-                        { label: 'Email Address', key: 'email', type: 'email', placeholder: 'john@university.edu' },
-                        { label: 'University Name', key: 'university', type: 'text', placeholder: 'Your University' },
-                        { label: 'Student ID Number', key: 'studentId', type: 'text', placeholder: 'ID Number' },
-                      ]
-                    ) : (
-                      [
-                        { label: 'Full Name', key: 'name', type: 'text', placeholder: 'John Doe' },
-                        { label: 'Email Address', key: 'email', type: 'email', placeholder: 'john@example.com' },
-                        { label: 'Phone Number', key: 'phoneNumber', type: 'tel', placeholder: '+1 (555) 000-0000' },
-                        { label: 'Special Requests', key: 'specialRequests', type: 'text', placeholder: 'Late check-in, etc.' },
-                      ]
+                    {(isPG
+                      ? [
+                          { label: 'Full Name', key: 'name', type: 'text', placeholder: 'John Doe' },
+                          { label: 'Email Address', key: 'email', type: 'email', placeholder: 'john@university.edu' },
+                          { label: 'University Name', key: 'university', type: 'text', placeholder: 'Your University' },
+                          { label: 'Student ID Number', key: 'studentId', type: 'text', placeholder: 'ID Number' },
+                        ]
+                      : [
+                          { label: 'Full Name', key: 'name', type: 'text', placeholder: 'John Doe' },
+                          { label: 'Email Address', key: 'email', type: 'email', placeholder: 'john@example.com' },
+                          { label: 'Phone Number', key: 'phoneNumber', type: 'tel', placeholder: '+1 (555) 000-0000' },
+                          { label: 'Special Requests', key: 'specialRequests', type: 'text', placeholder: 'Late check-in, etc.' },
+                        ]
                     ).map(({ label, key, type, placeholder }) => (
                       <div key={key} className="space-y-3">
                         <label htmlFor={`field-${key}`} className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">{label}</label>
