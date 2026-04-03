@@ -93,3 +93,65 @@ export const apiPost = async <T>(path: string, body?: unknown, init?: RequestIni
   const payload = (await response.json()) as ApiEnvelope<T>;
   return payload.data;
 };
+
+export const apiPut = async <T>(path: string, body?: unknown, init?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+      ...(init?.headers ?? {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<T>;
+  return payload.data;
+};
+
+export const apiPatch = async <T>(path: string, body?: unknown, init?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+      ...(init?.headers ?? {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<T>;
+  return payload.data;
+};
+
+export const apiDelete = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+      ...(init?.headers ?? {})
+    }
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as ApiEnvelope<T>;
+  return payload.data;
+};

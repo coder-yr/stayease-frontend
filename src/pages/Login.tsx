@@ -39,7 +39,13 @@ const Login = () => {
       localStorage.setItem('session', JSON.stringify(data.session));
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      navigate('/dashboard');
+      if (data.user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (data.user.role === 'owner') {
+        navigate('/owner/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message.includes('{') ? 'Invalid email or password.' : message);

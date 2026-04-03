@@ -21,6 +21,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useNavigate } from 'react-router-dom';
+import { chatApi } from '../services/chatApi';
 
 const AIAssistant: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +34,8 @@ const AIAssistant: React.FC = () => {
     }
   ]);
   const [inputValue, setInputValue] = React.useState('');
+  const [isSending, setIsSending] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState('');
 
   const suggestions = [
     { text: 'Find luxury hotels in Singapore', icon: Hotel },
@@ -41,36 +44,59 @@ const AIAssistant: React.FC = () => {
     { text: 'Best time to visit Bali', icon: Clock },
   ];
 
-  const handleSend = () => {
+  const normalizeAssistantText = (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (typeof parsed === 'string') return parsed;
+      } catch {
+        return trimmed.slice(1, -1);
+      }
+    }
+    return trimmed;
+  };
+
+  const handleSend = async () => {
     if (!inputValue.trim()) return;
+
+    const prompt = inputValue.trim();
+    setErrorMessage('');
+    setIsSending(true);
 
     const newUserMessage = {
       id: messages.length + 1,
       type: 'user',
-      text: inputValue,
+      text: prompt,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages([...messages, newUserMessage]);
     setInputValue('');
 
-    // Simulate bot response
-    setTimeout(() => {
+    try {
+      const response = await chatApi.sendMessage(prompt);
       const botResponse = {
         id: messages.length + 2,
         type: 'bot',
-        text: "That's a great question! Based on your preferences, I've found some excellent options for you. Here are the top recommendations:",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        card: {
-          title: 'The Zenith Luxury Suites',
-          location: 'Downtown, Singapore',
-          rating: 4.9,
-          price: 245,
-          image: 'https://picsum.photos/seed/hotel1/400/300'
-        }
+        text: normalizeAssistantText(response.message),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, botResponse]);
-    }, 1000);
+    } catch (error) {
+      setErrorMessage('Failed to reach the AI assistant. Please make sure you are logged in and the backend is running.');
+      setMessages(prev => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          type: 'bot',
+          text: 'The AI assistant is temporarily unavailable.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -102,6 +128,12 @@ const AIAssistant: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-900">
+          {errorMessage}
+        </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 scrollbar-hide">
@@ -201,7 +233,8 @@ const AIAssistant: React.FC = () => {
                 <button className="hover:text-brand-accent transition-colors"><Mic className="w-5 h-5" /></button>
                 <button 
                   onClick={handleSend}
-                  className="bg-slate-900 text-white p-2 rounded-xl hover:bg-brand-accent transition-all shadow-sm active:scale-90"
+                  disabled={isSending}
+                  className="bg-slate-900 text-white p-2 rounded-xl hover:bg-brand-accent transition-all shadow-sm active:scale-90 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Send className="w-4 h-4" />
                 </button>

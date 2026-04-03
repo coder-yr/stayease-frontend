@@ -17,11 +17,17 @@ import Checkout from './pages/Checkout';
 import BookingSuccess from './pages/BookingSuccess';
 import Journal from './pages/Journal';
 import Dashboard from './pages/Dashboard';
+import OwnerDashboard from './pages/OwnerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import NearbyServices from './pages/NearbyServices';
 import Support from './pages/Support';
 import Flights from './pages/Flights';
 import FlightResults from './pages/FlightResults';
 import FlightBooking from './pages/FlightBooking';
+import Buses from './pages/Buses';
+import BusBooking from './pages/BusBooking';
+import Trains from './pages/Trains';
+import TrainBooking from './pages/TrainBooking';
 import NotFound from './pages/NotFound';
 import { AnimatePresence, motion } from 'motion/react';
 import MobileNav from './components/MobileNav';
@@ -62,11 +68,21 @@ const AnimatedRoutes = () => {
               <Route path="/login"               element={<Login />} />
               <Route path="/signup"              element={<Signup />} />
               <Route path="/dashboard"           element={<Dashboard />} />
+              <Route path="/owner/dashboard"     element={<OwnerDashboard />} />
+              <Route path="/admin/dashboard"     element={<AdminDashboard />} />
               <Route path="/nearby"              element={<NearbyServices />} />
               <Route path="/flights"             element={<FlightResults />} />
               <Route path="/flights/search"      element={<Flights />} />
               <Route path="/flights/results"     element={<FlightResults />} />
               <Route path="/flights/booking"     element={<FlightBooking />} />
+              <Route path="/buses"               element={<Buses />} />
+              <Route path="/buses/book"          element={<BusBooking />} />
+              <Route path="/trains"              element={<Trains />} />
+              <Route path="/trains/book"         element={<TrainBooking />} />
+              <Route path="/bus"                 element={<Navigate to="/buses" replace />} />
+              <Route path="/bus/book"            element={<Navigate to="/buses/book" replace />} />
+              <Route path="/train"               element={<Navigate to="/trains" replace />} />
+              <Route path="/train/book"          element={<Navigate to="/trains/book" replace />} />
               <Route path="/support"             element={<Support />} />
               <Route path="/about"    element={<Navigate to="/support" replace />} />
               <Route path="/careers"  element={<Navigate to="/support" replace />} />

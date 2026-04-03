@@ -10,6 +10,7 @@ type AuthResponse = {
     email: string;
     name: string | null;
     role: string;
+    preferences?: Record<string, unknown> | null;
   };
   session: {
     accessToken: string;
@@ -21,27 +22,35 @@ const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [accountType, setAccountType] = useState<'user' | 'owner'>('user');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfo('');
     setIsSubmitting(true);
 
     try {
       const data = await apiPost<AuthResponse>('/auth/signup', {
         name: name.trim(),
         email: email.trim(),
-        password
+        password,
+        accountType
       });
 
       localStorage.setItem('accessToken', data.session.accessToken);
       localStorage.setItem('session', JSON.stringify(data.session));
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      navigate('/dashboard');
+      if (accountType === 'owner') {
+        setInfo('Owner request submitted. An admin must approve your owner access.');
+      }
+
+      navigate(accountType === 'owner' ? '/owner/dashboard' : '/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Signup failed';
       setError(message.includes('{') ? 'Unable to create account. Please try again.' : message);
@@ -109,6 +118,47 @@ const Signup = () => {
                   {error}
                 </div>
               )}
+
+              {info && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                  {info}
+                </div>
+              )}
+
+              <motion.div variants={itemVariants}>
+                <label className="block text-xs font-semibold uppercase tracking-widest text-slate-600 mb-2">
+                  Account Type
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('user')}
+                    className={`px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                      accountType === 'user'
+                        ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Traveler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('owner')}
+                    className={`px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                      accountType === 'owner'
+                        ? 'border-brand-accent bg-brand-accent/10 text-brand-accent'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Hotel Owner
+                  </button>
+                </div>
+                {accountType === 'owner' && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Owner accounts are reviewed by admin before listing hotels.
+                  </p>
+                )}
+              </motion.div>
 
               <motion.div variants={itemVariants}>
                 <label className="block text-xs font-semibold uppercase tracking-widest text-slate-600 mb-2">

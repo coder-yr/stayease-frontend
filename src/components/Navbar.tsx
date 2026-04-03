@@ -11,7 +11,9 @@ import {
   CreditCard,
   History,
   Settings,
-  Bell
+  Bell,
+  Building2,
+  LayoutDashboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getAccessToken } from '../services/apiClient';
@@ -192,6 +194,24 @@ const Navbar: React.FC = () => {
                         </div>
                         
                         <div className="p-2.5">
+                          {(userProfile?.role === 'owner' || userProfile?.role === 'admin') && (
+                            <Link
+                              to="/owner/dashboard"
+                              onClick={() => setShowUserDropdown(false)}
+                              className="flex items-center gap-3 w-full p-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-[#ecfdf5] hover:text-[#10b981] transition-all"
+                            >
+                              <Building2 className="w-4 h-4 opacity-70" /> Host console
+                            </Link>
+                          )}
+                          {userProfile?.role === 'admin' && (
+                            <Link
+                              to="/admin/dashboard"
+                              onClick={() => setShowUserDropdown(false)}
+                              className="flex items-center gap-3 w-full p-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-[#ecfdf5] hover:text-[#10b981] transition-all"
+                            >
+                              <LayoutDashboard className="w-4 h-4 opacity-70" /> Approvals
+                            </Link>
+                          )}
                           <Link to="/dashboard" onClick={() => setShowUserDropdown(false)} className="flex items-center gap-3 w-full p-3 rounded-xl text-xs font-bold text-slate-500 hover:bg-[#ecfdf5] hover:text-[#10b981] transition-all">
                             <History className="w-4 h-4 opacity-70" /> My Bookings
                           </Link>
@@ -282,6 +302,40 @@ const Navbar: React.FC = () => {
                   <ChevronDown className="-rotate-90 w-4 h-4 opacity-20" />
                 </Link>
               ))}
+
+              {isAuthenticated && (userProfile?.role === 'owner' || userProfile?.role === 'admin') && (
+                <Link
+                  to="/owner/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center justify-between p-6 rounded-[2rem] transition-all ${
+                    location.pathname === '/owner/dashboard'
+                      ? 'bg-[#ecfdf5] text-[#1a2b2b] shadow-sm translate-x-2'
+                      : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="text-lg font-bold uppercase tracking-[0.2em] flex items-center gap-3">
+                    <Building2 className="w-5 h-5 opacity-60" /> Host console
+                  </span>
+                  <ChevronDown className="-rotate-90 w-4 h-4 opacity-20" />
+                </Link>
+              )}
+
+              {isAuthenticated && userProfile?.role === 'admin' && (
+                <Link
+                  to="/admin/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center justify-between p-6 rounded-[2rem] transition-all ${
+                    location.pathname === '/admin/dashboard'
+                      ? 'bg-[#ecfdf5] text-[#1a2b2b] shadow-sm translate-x-2'
+                      : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="text-lg font-bold uppercase tracking-[0.2em] flex items-center gap-3">
+                    <LayoutDashboard className="w-5 h-5 opacity-60" /> Approvals
+                  </span>
+                  <ChevronDown className="-rotate-90 w-4 h-4 opacity-20" />
+                </Link>
+              )}
               
               <Link
                 to="/ai"
