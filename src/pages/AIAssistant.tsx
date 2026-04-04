@@ -2,30 +2,123 @@ import React from 'react';
 import { 
   Sparkles, 
   Send, 
-  Mic, 
-  Paperclip, 
   Bot, 
   User, 
   Plane, 
   Hotel, 
   Train, 
+  Bus,
   MapPin, 
   Star, 
-  ArrowRight, 
   Clock, 
-  ShieldCheck, 
-  Zap, 
-  MessageSquare, 
   X 
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 import { useNavigate } from 'react-router-dom';
 import { chatApi } from '../services/chatApi';
 
+type RecommendationCard = {
+  id: string;
+  title: string;
+  subtitle: string;
+  priceLabel: string;
+  rating?: number;
+  image?: string;
+  routePath?: string;
+};
+
+type RecommendationSection = {
+  key: 'hotels' | 'flights' | 'buses' | 'trains';
+  label: string;
+  icon: React.ReactNode;
+  cards: RecommendationCard[];
+};
+
+type ChatMessage = {
+  id: number;
+  type: 'bot' | 'user';
+  text: string;
+  timestamp: string;
+  showSuggestions?: boolean;
+  recommendations?: RecommendationSection[];
+};
+
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+const toTitleCase = (value: string) =>
+  value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const getSectionsFromContext = (context?: Record<string, unknown>): RecommendationSection[] => {
+  if (!context) return [];
+
+  const hotelsRaw = asArray<any>((context.hotels as any)?.items ?? context.hotels);
+  const flightsRaw = asArray<any>((context.flights as any)?.items ?? context.flights);
+  const busesRaw = asArray<any>(context.buses);
+  const trainsRaw = asArray<any>(context.trains);
+
+  const hotels = hotelsRaw.slice(0, 3).map((hotel) => {
+    const images = asArray<string>(hotel.images);
+    const hotelId = hotel.id ? String(hotel.id) : '';
+    return {
+      id: String(hotel.id ?? hotel.name ?? Math.random()),
+      title: String(hotel.name ?? 'Hotel Option'),
+      subtitle: String(hotel.location ?? 'Great location'),
+      priceLabel: `₹${Number(hotel.price ?? 0).toLocaleString()}/night`,
+      rating: typeof hotel.rating === 'number' ? hotel.rating : undefined,
+      image: images[0],
+      routePath: hotelId ? `/property/${hotelId}` : undefined
+    } satisfies RecommendationCard;
+  });
+
+  const flights = flightsRaw.slice(0, 3).map((flight) => {
+    const source = String(flight.source ?? 'SRC');
+    const destination = String(flight.destination ?? 'DST');
+    return {
+      id: String(flight.id ?? flight.externalId ?? `${source}-${destination}`),
+      title: `${source} -> ${destination}`,
+      subtitle: `${flight.airline ?? 'Airline'} • ${toTitleCase(String(flight.cabinClass ?? 'economy'))}`,
+      priceLabel: `₹${Number(flight.price ?? 0).toLocaleString()}`
+    } satisfies RecommendationCard;
+  });
+
+  const buses = busesRaw.slice(0, 3).map((bus) => ({
+    id: String(bus.id ?? `${bus.source}-${bus.destination}`),
+    title: `${bus.source ?? 'Source'} -> ${bus.destination ?? 'Destination'}`,
+    subtitle: `${bus.operator ?? 'Bus'} • ${bus.duration ?? 'Duration unavailable'}`,
+    priceLabel: `₹${Number(bus.price ?? 0).toLocaleString()}`
+  } satisfies RecommendationCard));
+
+  const trains = trainsRaw.slice(0, 3).map((train) => ({
+    id: String(train.id ?? `${train.source}-${train.destination}`),
+    title: `${train.source ?? 'Source'} -> ${train.destination ?? 'Destination'}`,
+    subtitle: `${train.operator ?? 'Train'} • ${train.duration ?? 'Duration unavailable'}`,
+    priceLabel: `₹${Number(train.price ?? 0).toLocaleString()}`
+  } satisfies RecommendationCard));
+
+  const sections: RecommendationSection[] = [];
+
+  if (hotels.length) {
+    sections.push({ key: 'hotels', label: 'Recommended Hotels', icon: <Hotel className="w-4 h-4" />, cards: hotels });
+  }
+  if (flights.length) {
+    sections.push({ key: 'flights', label: 'Recommended Flights', icon: <Plane className="w-4 h-4" />, cards: flights });
+  }
+  if (buses.length) {
+    sections.push({ key: 'buses', label: 'Recommended Buses', icon: <Bus className="w-4 h-4" />, cards: buses });
+  }
+  if (trains.length) {
+    sections.push({ key: 'trains', label: 'Recommended Trains', icon: <Train className="w-4 h-4" />, cards: trains });
+  }
+
+  return sections;
+};
+
 const AIAssistant: React.FC = () => {
   const navigate = useNavigate();
-  const [messages, setMessages] = React.useState([
+  const [messages, setMessages] = React.useState<ChatMessage[]>([
     {
       id: 1,
       type: 'bot',
@@ -80,7 +173,8 @@ const AIAssistant: React.FC = () => {
         id: messages.length + 2,
         type: 'bot',
         text: normalizeAssistantText(response.message),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        recommendations: getSectionsFromContext(response.context)
       };
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
@@ -118,7 +212,8 @@ const AIAssistant: React.FC = () => {
           id: messages.length + 2,
           type: 'bot',
           text: normalizeAssistantText(response.message),
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          recommendations: getSectionsFromContext(response.context)
         };
         setMessages(prev => [...prev, botResponse]);
       } catch (error) {
@@ -136,6 +231,11 @@ const AIAssistant: React.FC = () => {
         setIsSending(false);
       }
     })();
+  };
+
+  const handleRecommendationClick = (card: RecommendationCard) => {
+    if (!card.routePath) return;
+    navigate(card.routePath);
   };
 
   return (
@@ -233,56 +333,44 @@ const AIAssistant: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Rich Card Response */}
-                {msg.card && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-xl w-full sm:w-80 group cursor-pointer"
-                  >
-                    <div className="h-40 overflow-hidden relative">
-                      <img src={msg.card.image} alt={msg.card.title} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1 text-[10px] font-bold">
-                        <span className="text-orange-500 bg-orange-50 px-2 py-1 rounded">FEATURED</span>
-                      </div>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      <h4 className="font-bold text-slate-900 group-hover:text-brand-accent transition-colors">{msg.card.title}</h4>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1 text-slate-500">
-                          <MapPin className="w-3 h-3" />
-                          {msg.card.location}
+                {msg.recommendations && msg.recommendations.length > 0 && (
+                  <div className="w-full space-y-4">
+                    {msg.recommendations.map((section) => (
+                      <div key={section.key} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100 text-sm font-bold text-brand-primary">
+                          {section.icon}
+                          <span>{section.label}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-yellow-500 font-bold">
-                          <Star className="w-3 h-3 fill-yellow-500" />
-                          {msg.card.rating}
+                        <div className="p-3 grid gap-2">
+                          {section.cards.map((card) => (
+                            <div
+                              key={card.id}
+                              onClick={() => handleRecommendationClick(card)}
+                              className={`flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white ${
+                                card.routePath ? 'cursor-pointer hover:bg-slate-50 transition-colors' : ''
+                              }`}
+                            >
+                              {card.image ? (
+                                <img src={card.image} alt={card.title} className="w-16 h-16 rounded-lg object-cover" />
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                  {section.icon}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-slate-900 truncate">{card.title}</p>
+                                <p className="text-xs text-slate-500 truncate">{card.subtitle}</p>
+                                {typeof card.rating === 'number' && (
+                                  <div className="mt-1 flex items-center gap-1 text-xs text-amber-500">
+                                    <Star className="w-3 h-3 fill-amber-500" />
+                                    <span>{card.rating.toFixed(1)}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-sm font-bold text-slate-900 whitespace-nowrap">{card.priceLabel}</div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      <div className="pt-3 border-t border-slate-100">
-                        <div className="text-xs text-slate-400">
-                          From <span className="text-slate-900 font-bold text-lg">${msg.card.price}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Transport Options */}
-                {msg.transport && (
-                  <div className="w-full space-y-2">
-                    <div className="text-xs font-bold text-slate-500 uppercase">Recommended Transport</div>
-                    {msg.transport.map((t: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center">
-                            {t.icon}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{t.name}</div>
-                            <div className="text-[10px] text-slate-500">{t.description}</div>
-                          </div>
-                        </div>
-                        <div className="text-sm font-bold text-slate-900">{t.price}</div>
                       </div>
                     ))}
                   </div>
