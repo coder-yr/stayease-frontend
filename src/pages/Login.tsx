@@ -23,6 +23,7 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const smoothEase = [0.25, 0.1, 0.25, 1] as const;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +71,7 @@ const Login = () => {
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }
+      transition: { duration: 0.5, ease: smoothEase }
     }
   };
 
@@ -87,7 +88,7 @@ const Login = () => {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+            transition={{ duration: 0.6, ease: smoothEase }}
           >
             <Link to="/" className="flex items-center gap-2 mb-12">
               <span className="text-3xl font-display font-bold text-brand-primary tracking-tight">Stay<span className="text-brand-accent italic font-serif">Ease</span></span>
@@ -231,7 +232,7 @@ const Login = () => {
         <div className="absolute inset-0 w-full h-full">
           <img
             className="absolute inset-0 w-full h-full object-cover"
-            src="https://images.unsplash.com/photo-1542314831-c6a4d27eceh1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+            src="https://images.unsplash.com/photo-1432821596592-e2c18b78144f?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
             alt="StayEase Premium Property"
           />
           <div className="hero-image-overlay absolute inset-0 mix-blend-multiply opacity-50" />

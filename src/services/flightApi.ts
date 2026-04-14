@@ -50,6 +50,59 @@ export interface SearchParams {
 class FlightService {
   private static instance: FlightService;
 
+  private readonly airlineBrandMap: Record<string, { name: string; code: string; aliases: string[] }> = {
+    AI: {
+      name: 'Air India',
+      code: 'AI',
+      aliases: ['air india', 'ai']
+    },
+    SG: {
+      name: 'SpiceJet',
+      code: 'SG',
+      aliases: ['spicejet', 'spicjet', 'sg']
+    },
+    '6E': {
+      name: 'IndiGo',
+      code: '6E',
+      aliases: ['indigo', '6e']
+    },
+    UK: {
+      name: 'Vistara',
+      code: 'UK',
+      aliases: ['vistara', 'uk']
+    },
+    QP: {
+      name: 'Akasa Air',
+      code: 'QP',
+      aliases: ['akasa', 'akasa air', 'qp']
+    },
+    EK: {
+      name: 'Emirates',
+      code: 'EK',
+      aliases: ['emirates', 'ek']
+    },
+    LH: {
+      name: 'Lufthansa',
+      code: 'LH',
+      aliases: ['lufthansa', 'lh']
+    },
+    QR: {
+      name: 'Qatar Airways',
+      code: 'QR',
+      aliases: ['qatar', 'qatar airways', 'qr']
+    },
+    SQ: {
+      name: 'Singapore Airlines',
+      code: 'SQ',
+      aliases: ['singapore airlines', 'sq']
+    },
+    BA: {
+      name: 'British Airways',
+      code: 'BA',
+      aliases: ['british', 'british airways', 'ba']
+    }
+  };
+
   private readonly cityIataMap: Record<string, string> = {
     bengaluru: 'BLR',
     bangalore: 'BLR',
@@ -105,6 +158,42 @@ class FlightService {
     return 'ECONOMY';
   }
 
+  private getAirlineLogoByCode(code: string): string {
+    return `https://images.kiwi.com/airlines/64/${code}.png`;
+  }
+
+  private resolveAirlineBrand(airlineRaw: string): { name: string; logo: string } {
+    const airline = airlineRaw.trim();
+    const maybeCode = airline.toUpperCase();
+
+    if (this.airlineBrandMap[maybeCode]) {
+      return {
+        name: this.airlineBrandMap[maybeCode].name,
+        logo: this.getAirlineLogoByCode(this.airlineBrandMap[maybeCode].code)
+      };
+    }
+
+    const lowered = airline.toLowerCase();
+    const matched = Object.values(this.airlineBrandMap).find((entry) =>
+      entry.aliases.some((alias) => lowered.includes(alias))
+    );
+    if (matched) {
+      return { name: matched.name, logo: this.getAirlineLogoByCode(matched.code) };
+    }
+
+    if (/^[A-Z0-9]{2,3}$/.test(maybeCode)) {
+      return {
+        name: maybeCode,
+        logo: `https://images.kiwi.com/airlines/64/${maybeCode}.png`
+      };
+    }
+
+    return {
+      name: airline || 'Airline',
+      logo: 'https://images.unsplash.com/photo-1436491865332-7a61a109c0f3?auto=format&fit=crop&w=100&q=80'
+    };
+  }
+
   private toIataCode(value: string): string {
     const match = value.match(/\(([^)]+)\)/)?.[1]?.trim().toUpperCase();
     if (match && /^[A-Z]{3}$/.test(match)) return match;
@@ -117,12 +206,13 @@ class FlightService {
 
   private mapApiFlight(item: any, idx: number, requestedClass: string): Flight {
     const tags = ['Cheapest', 'Fastest', 'Best Experience', 'Top Rated'];
-    const airlineCode = String(item.airline ?? 'ST');
+    const airlineRaw = String(item.airline ?? 'ST');
+    const airlineBrand = this.resolveAirlineBrand(airlineRaw);
 
     return {
       id: String(item.externalId ?? item.id ?? `FL-${idx}-${Date.now()}`),
-      airline: airlineCode,
-      logo: 'https://images.unsplash.com/photo-1436491865332-7a61a109c0f3?auto=format&fit=crop&w=100&q=80',
+      airline: airlineBrand.name,
+      logo: airlineBrand.logo,
       departure: {
         time: this.toTime(item.departureTime),
         city: String(item.source ?? ''),

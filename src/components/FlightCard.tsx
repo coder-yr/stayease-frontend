@@ -14,6 +14,16 @@ const FlightCard: React.FC<FlightCardProps> = ({
   index = 0, 
   onClick 
 }) => {
+  const [logoFailed, setLogoFailed] = React.useState(false);
+
+  const airlineLabel = flight.airline?.trim() || 'Airline';
+  const fallbackInitials = airlineLabel
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -28,7 +38,18 @@ const FlightCard: React.FC<FlightCardProps> = ({
         {/* Airline Info */}
         <div className="flex items-center gap-4 md:gap-6 w-full md:w-56">
           <div className="w-14 h-14 md:w-20 md:h-20 rounded-[20px] md:rounded-[28px] bg-slate-50 border border-slate-100 flex items-center justify-center p-3 md:p-5 group-hover:scale-110 transition-transform duration-500">
-            <img src={flight.logo} alt={flight.airline} className="w-full h-full object-contain" />
+            {logoFailed ? (
+              <div className="w-full h-full rounded-xl bg-white border border-slate-100 flex items-center justify-center text-xs md:text-sm font-bold text-slate-600">
+                {fallbackInitials}
+              </div>
+            ) : (
+              <img
+                src={flight.logo}
+                alt={flight.airline}
+                className="w-full h-full object-contain"
+                onError={() => setLogoFailed(true)}
+              />
+            )}
           </div>
           <div className="space-y-1">
             <h4 className="text-base md:text-lg font-display font-bold text-slate-900 uppercase tracking-tight">{flight.airline}</h4>
