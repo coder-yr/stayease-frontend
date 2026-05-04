@@ -31,7 +31,7 @@ const staggerContainer = {
 
 const fadeUpItem = {
   hidden: { opacity: 0, y: 30 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
+  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const } }
 };
 
 const Home: React.FC = () => {
@@ -44,7 +44,7 @@ const Home: React.FC = () => {
     { label: 'TRAINS', icon: Train, color: 'text-rose-500', path: '/trains' },
     { label: 'BUSES', icon: Bus, color: 'text-blue-500', path: '/buses' },
     { label: 'PG/ROOMS', icon: HomeIcon, color: 'text-slate-600', path: '/pg' },
-    { label: 'ACTIVITIES', icon: LayoutGrid, color: 'text-slate-600', path: '/search' },
+    { label: 'PACKAGES', icon: LayoutGrid, color: 'text-slate-600', path: '/tours' },
   ];
 
   const [properties, setProperties] = React.useState<Property[]>([]);
@@ -226,7 +226,7 @@ const Home: React.FC = () => {
                 <motion.div 
                   key={idx}
                   variants={fadeUpItem}
-                  whileHover={{ y: -12, shadow: "0 20px 40px -20px rgba(0,0,0,0.1)", zIndex: 10 }}
+                  whileHover={{ y: -12, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.1)", zIndex: 10 }}
                   onClick={() => navigate(`/property/${prop.id}`)}
                   className="bg-white p-10 space-y-10 group cursor-pointer hover:bg-slate-50 transition-all duration-500 relative"
                 >

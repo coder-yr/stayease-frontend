@@ -17,7 +17,9 @@ import {
 import { motion } from 'motion/react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { propertyApi, Property } from '../services/propertyApi';
+import { packageApi, TourPackage } from '../services/packageApi';
 import { bookingApi } from '../services/bookingApi';
+import { paymentApi } from '../services/paymentApi';
 import { getAccessToken } from '../services/apiClient';
 import Toast, { useToast } from '../components/Toast';
 
@@ -81,6 +83,7 @@ const Checkout: React.FC = () => {
   const { toasts, addToast, dismiss } = useToast();
   const [step, setStep] = React.useState(1);
   const [property, setProperty] = React.useState<Property | null>(null);
+  const [travelPackage, setTravelPackage] = React.useState<TourPackage | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [termsAccepted, setTermsAccepted] = React.useState(false);
@@ -88,6 +91,9 @@ const Checkout: React.FC = () => {
   const [hasAuthToken, setHasAuthToken] = React.useState(!!getAccessToken());
   
   const [searchParams] = useSearchParams();
+  const checkoutType = searchParams.get('type') === 'package' ? 'package' : 'hotel';
+  const packageId = searchParams.get('packageId') || (checkoutType === 'package' && id && id !== 'package' ? id : null);
+  const isPackageCheckout = checkoutType === 'package';
   
   // Booking values from user selection (PropertyDetail/search query)
   const { checkIn: normalizedCheckIn, checkOut: normalizedCheckOut } = React.useMemo(
@@ -114,15 +120,37 @@ const Checkout: React.FC = () => {
   const [card, setCard] = React.useState({ number: '', expiry: '', cvv: '' });
 
   React.useEffect(() => {
-    const fetchProperty = async () => {
-      if (!id) return;
+    const fetchItem = async () => {
       setLoading(true);
-      const data = await propertyApi.getPropertyById(id);
-      setProperty(data || null);
-      setLoading(false);
+      try {
+        if (isPackageCheckout) {
+          if (!packageId) {
+            setTravelPackage(null);
+            setProperty(null);
+            return;
+          }
+
+          const data = await packageApi.getPackageById(packageId);
+          setTravelPackage(data || null);
+          setProperty(null);
+          return;
+        }
+
+        if (!id) {
+          setProperty(null);
+          setTravelPackage(null);
+          return;
+        }
+
+        const data = await propertyApi.getPropertyById(id);
+        setProperty(data || null);
+        setTravelPackage(null);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchProperty();
-  }, [id]);
+    fetchItem();
+  }, [id, isPackageCheckout, packageId]);
 
   // Keep auth state in sync if token changes after sign-in.
   React.useEffect(() => {
@@ -181,9 +209,27 @@ const Checkout: React.FC = () => {
   }, [property]);
 
   const selectedTier = React.useMemo(
-    () => searchParams.get('tier')?.trim() || (isPG ? 'Essential Suite' : 'Standard'),
-    [searchParams, isPG]
+    () => searchParams.get('tier')?.trim() || (isPackageCheckout ? 'Signature Journey' : isPG ? 'Essential Suite' : 'Standard'),
+    [searchParams, isPG, isPackageCheckout]
   );
+
+  const displayListing = React.useMemo(() => {
+    if (isPackageCheckout && travelPackage) {
+      return {
+        id: travelPackage.id,
+        name: travelPackage.name,
+        location: travelPackage.destination,
+        image: travelPackage.images?.[0] ?? 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
+        price: Number(travelPackage.price ?? 0),
+        rating: 4.8,
+        category: 'Package',
+        taxRate: 5,
+        description: travelPackage.description ?? 'Curated package for a fast conversion path.'
+      };
+    }
+
+    return property;
+  }, [isPackageCheckout, property, travelPackage]);
 
   const nights = React.useMemo(() => {
     const start = new Date(normalizedCheckIn);
@@ -192,10 +238,23 @@ const Checkout: React.FC = () => {
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [normalizedCheckIn, normalizedCheckOut]);
 
+  const bookingTitle = displayListing?.name ?? 'Your booking';
+  const bookingLocation = displayListing?.location ?? 'Destination pending';
+  const bookingImage = displayListing?.image ?? 'https://images.unsplash.com/photo-1502920917128-1aa500764b2a?auto=format&fit=crop&w=1200&q=80';
+  const bookingRating = Number(displayListing?.rating ?? 4.8);
+
   const pricing = React.useMemo(() => {
-    if (!property) return { base: 0, service: 0, tax: 0, deposit: 0, discount: 0, total: 0 };
+    if (!displayListing) return { base: 0, service: 0, tax: 0, deposit: 0, discount: 0, total: 0 };
+
+    if (isPackageCheckout && travelPackage) {
+      const base = Number(travelPackage.price ?? 0);
+      const service = 1200;
+      const tax = Math.round(base * 0.05);
+      const discount = 0;
+      return { base, service, tax, deposit: 0, discount, total: Math.round(base + service + tax - discount) };
+    }
     
-    const baseInr = property.price * (property.price < 500 ? 84 : 1);
+    const baseInr = displayListing.price * (displayListing.price < 500 ? 84 : 1);
     
     if (isPG) {
       const base = baseInr; // Monthly rent
@@ -206,12 +265,12 @@ const Checkout: React.FC = () => {
     } else {
       const base = baseInr * nights;
       const service = 1500;
-      const taxPercent = (property.taxRate ?? 12) / 100;
+      const taxPercent = (displayListing.taxRate ?? 12) / 100;
       const tax = Math.round(base * taxPercent);
       const discount = 0;
       return { base, service, tax, deposit: 0, discount, total: Math.round(base + service + tax - discount) };
     }
-  }, [property, isPG, nights]);
+  }, [displayListing, isPG, isPackageCheckout, travelPackage, nights]);
 
   const totalAmount = pricing.total;
 
@@ -224,12 +283,12 @@ const Checkout: React.FC = () => {
     );
   }
 
-  if (!property) {
+  if (!displayListing) {
     return (
       <div className="bg-white min-h-screen flex flex-col items-center justify-center space-y-8">
         <AlertCircle className="w-16 h-16 text-rose-400" aria-hidden="true" />
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">Sanctuary not found...</p>
-        <button onClick={() => navigate('/hotels')} className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-brand-accent transition-all">Return to discovery</button>
+        <button onClick={() => navigate(isPackageCheckout ? '/tours' : '/hotels')} className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-brand-accent transition-all">Return to discovery</button>
       </div>
     );
   }
@@ -287,11 +346,26 @@ const Checkout: React.FC = () => {
       setHasAuthToken(!!getAccessToken());
       const diffTime = Math.abs(new Date(normalizedCheckOut).getTime() - new Date(normalizedCheckIn).getTime());
       const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      await paymentApi.approveMockPayment({
+        amount: totalAmount,
+        currency: 'INR',
+        bookingType: isPackageCheckout ? 'package' : 'hotel'
+      });
       
       const booking = await bookingApi.createBooking({
-        type: 'hotel',
+        type: isPackageCheckout ? 'package' : 'hotel',
         travelDate: new Date(normalizedCheckIn).toISOString(),
-        hotelId: id!,
+        hotelId: isPackageCheckout ? undefined : id!,
+        packageId: isPackageCheckout ? travelPackage?.id : undefined,
+        packageData: isPackageCheckout && travelPackage ? {
+          id: travelPackage.id,
+          name: travelPackage.name,
+          destination: travelPackage.destination,
+          description: travelPackage.description,
+          price: travelPackage.price,
+          images: travelPackage.images
+        } : undefined,
         totalAmount,
         currency: 'INR',
         metadata: {
@@ -308,7 +382,9 @@ const Checkout: React.FC = () => {
           guests: selectedGuests,
           nights,
           checkInDate: normalizedCheckIn,
-          checkOutDate: normalizedCheckOut
+          checkOutDate: normalizedCheckOut,
+          packageName: isPackageCheckout ? travelPackage?.name : undefined,
+          packageDestination: isPackageCheckout ? travelPackage?.destination : undefined
         }
       });
 
@@ -341,7 +417,7 @@ const Checkout: React.FC = () => {
       {!hasAuthToken && (
         <div className="bg-rose-50 border-b-2 border-rose-200 px-6 py-6">
           <div className="max-w-7xl mx-auto flex items-center gap-4">
-            <AlertCircle className="w-6 h-6 text-rose-500 flex-shrink-0" />
+            <AlertCircle className="w-6 h-6 text-rose-500 shrink-0" />
             <div className="flex-1">
               <h3 className="font-bold text-rose-900 text-sm uppercase tracking-wider mb-1">
                 Account Sign-In Required
@@ -354,7 +430,7 @@ const Checkout: React.FC = () => {
             </div>
             <button 
               onClick={() => navigate('/hotels')}
-              className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-rose-700 transition-colors flex-shrink-0"
+              className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-widest hover:bg-rose-700 transition-colors shrink-0"
             >
               Back
             </button>
@@ -417,25 +493,25 @@ const Checkout: React.FC = () => {
                 <div className="space-y-8">
                   <div className="flex items-center gap-4">
                     <div className="w-1 h-8 bg-brand-accent rounded-full" aria-hidden="true"></div>
-                    <h2 className="text-3xl font-display font-bold text-slate-900 uppercase tracking-tight">Review your stay</h2>
+                    <h2 className="text-3xl font-display font-bold text-slate-900 uppercase tracking-tight">{isPackageCheckout ? 'Review your package' : 'Review your stay'}</h2>
                   </div>
                   
                   <div className="bg-slate-50 rounded-[40px] p-10 border border-slate-100 flex flex-col md:flex-row gap-10">
-                    <div className="w-full md:w-48 h-48 rounded-[32px] overflow-hidden shadow-2xl flex-shrink-0">
-                      <img src={property.image} alt={property.name} className="w-full h-full object-cover" loading="lazy" />
+                    <div className="w-full md:w-48 h-48 rounded-4xl overflow-hidden shadow-2xl shrink-0">
+                      <img src={bookingImage} alt={bookingTitle} className="w-full h-full object-cover" loading="lazy" />
                     </div>
                     <div className="flex-1 space-y-6">
                       <div className="space-y-2">
                         <div className="flex justify-between items-start">
-                          <h3 className="text-2xl font-display font-bold text-slate-900">{property.name}</h3>
-                          <div className="flex items-center gap-1.5 text-sm font-bold text-brand-accent bg-white px-3 py-1.5 rounded-xl shadow-sm" aria-label={`Rating: ${property.rating}`}>
+                          <h3 className="text-2xl font-display font-bold text-slate-900">{bookingTitle}</h3>
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-brand-accent bg-white px-3 py-1.5 rounded-xl shadow-sm" aria-label={`Rating: ${bookingRating}`}>
                             <Star className="w-4 h-4 fill-brand-accent" aria-hidden="true" />
-                            {property.rating}
+                            {bookingRating}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-400 font-medium">
                           <MapPin className="w-4 h-4 text-brand-accent" aria-hidden="true" />
-                          {property.location}
+                          {bookingLocation}
                         </div>
                       </div>
                       
@@ -456,7 +532,7 @@ const Checkout: React.FC = () => {
                       <div className="grid grid-cols-2 gap-8 pt-6 border-t border-slate-200/50">
                         <div className="space-y-2">
                           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Selected Tier</span>
-                          <div className="text-lg font-bold text-slate-900">{selectedTier}</div>
+                          <div className="text-lg font-bold text-slate-900">{isPackageCheckout ? 'Tour Package' : selectedTier}</div>
                         </div>
                         <div className="space-y-2">
                           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Guests</span>
@@ -467,8 +543,8 @@ const Checkout: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-brand-accent/5 rounded-[32px] p-8 border border-brand-accent/20 flex items-start gap-6">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm flex-shrink-0">
+                <div className="bg-brand-accent/5 rounded-4xl p-8 border border-brand-accent/20 flex items-start gap-6">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm shrink-0">
                     <Info className="w-6 h-6" aria-hidden="true" />
                   </div>
                   <div className="space-y-1">
@@ -481,7 +557,7 @@ const Checkout: React.FC = () => {
 
                 <button 
                   onClick={() => setStep(2)}
-                  className="w-full bg-slate-900 text-white py-6 rounded-[24px] font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3"
+                  className="w-full bg-slate-900 text-white py-6 rounded-3xl font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3"
                 >
                   CONTINUE TO DETAILS
                   <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -498,7 +574,7 @@ const Checkout: React.FC = () => {
               >
                 <div className="space-y-10">
                   <div className="flex items-center gap-4">
-                    <h2 className="text-3xl font-display font-bold text-slate-900 uppercase tracking-tight">{isPG ? 'Student Details' : 'Guest Details'}</h2>
+                    <h2 className="text-3xl font-display font-bold text-slate-900 uppercase tracking-tight">{isPackageCheckout ? 'Traveler Details' : isPG ? 'Student Details' : 'Guest Details'}</h2>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -531,8 +607,8 @@ const Checkout: React.FC = () => {
                   </div>
 
                   {isPG && (
-                    <div className="bg-brand-accent/5 rounded-[32px] p-8 border border-brand-accent/20 flex items-start gap-6">
-                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm flex-shrink-0">
+                    <div className="bg-brand-accent/5 rounded-4xl p-8 border border-brand-accent/20 flex items-start gap-6">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm shrink-0">
                         <GraduationCap className="w-6 h-6" />
                       </div>
                       <div className="space-y-1">
@@ -548,13 +624,13 @@ const Checkout: React.FC = () => {
                 <div className="flex gap-6">
                   <button 
                     onClick={() => setStep(1)}
-                    className="flex-1 bg-white text-slate-400 py-6 rounded-[24px] font-bold text-xs tracking-[0.2em] uppercase border border-slate-100 hover:bg-slate-50 hover:text-slate-900 transition-all"
+                    className="flex-1 bg-white text-slate-400 py-6 rounded-3xl font-bold text-xs tracking-[0.2em] uppercase border border-slate-100 hover:bg-slate-50 hover:text-slate-900 transition-all"
                   >
                     BACK
                   </button>
                   <button 
                     onClick={handleStep2Continue}
-                    className="flex-[2] bg-slate-900 text-white py-6 rounded-[24px] font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3"
+                    className="flex-2 bg-slate-900 text-white py-6 rounded-3xl font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3"
                   >
                     PROCEED TO PAYMENT
                     <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -577,15 +653,15 @@ const Checkout: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6" role="group" aria-label="Payment method">
-                    <button className="p-8 border-2 border-slate-900 bg-slate-900 text-white rounded-[32px] flex flex-col items-center gap-4 transition-all shadow-2xl" aria-pressed="true">
+                    <button className="p-8 border-2 border-slate-900 bg-slate-900 text-white rounded-4xl flex flex-col items-center gap-4 transition-all shadow-2xl" aria-pressed="true">
                       <CreditCard className="w-8 h-8" aria-hidden="true" />
                       <span className="text-[10px] font-bold tracking-[0.2em] uppercase">CARD</span>
                     </button>
-                    <button className="p-8 border-2 border-slate-50 hover:border-emerald-100 bg-slate-50 rounded-[32px] flex flex-col items-center gap-4 transition-all group" aria-pressed="false">
+                    <button className="p-8 border-2 border-slate-50 hover:border-emerald-100 bg-slate-50 rounded-4xl flex flex-col items-center gap-4 transition-all group" aria-pressed="false">
                       <Smartphone className="w-8 h-8 text-slate-300 group-hover:text-emerald-600 transition-colors" aria-hidden="true" />
                       <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 group-hover:text-slate-900 transition-colors">APPLE PAY</span>
                     </button>
-                    <button className="p-8 border-2 border-slate-50 hover:border-emerald-100 bg-slate-50 rounded-[32px] flex flex-col items-center gap-4 transition-all group" aria-pressed="false">
+                    <button className="p-8 border-2 border-slate-50 hover:border-emerald-100 bg-slate-50 rounded-4xl flex flex-col items-center gap-4 transition-all group" aria-pressed="false">
                       <Wallet className="w-8 h-8 text-slate-300 group-hover:text-emerald-600 transition-colors" aria-hidden="true" />
                       <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 group-hover:text-slate-900 transition-colors">CRYPTO</span>
                     </button>
@@ -651,8 +727,8 @@ const Checkout: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 rounded-[32px] p-8 border border-slate-100 flex items-center gap-6">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm flex-shrink-0">
+                  <div className="bg-slate-50 rounded-4xl p-8 border border-slate-100 flex items-center gap-6">
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm shrink-0">
                       <ShieldCheck className="w-6 h-6" aria-hidden="true" />
                     </div>
                     <div className="space-y-1">
@@ -688,7 +764,7 @@ const Checkout: React.FC = () => {
                   </div>
 
                   {/* Terms checkbox */}
-                  <div className="flex items-start gap-4 bg-slate-50 p-6 rounded-[24px] border border-slate-100">
+                  <div className="flex items-start gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
                     <input 
                       type="checkbox" 
                       id="terms" 
@@ -704,14 +780,14 @@ const Checkout: React.FC = () => {
                   <div className="flex gap-6">
                     <button 
                       onClick={() => setStep(2)}
-                      className="flex-1 bg-white text-slate-400 py-6 rounded-[24px] font-bold text-xs tracking-[0.2em] uppercase border border-slate-100 hover:bg-slate-50 hover:text-slate-900 transition-all"
+                      className="flex-1 bg-white text-slate-400 py-6 rounded-3xl font-bold text-xs tracking-[0.2em] uppercase border border-slate-100 hover:bg-slate-50 hover:text-slate-900 transition-all"
                     >
                       BACK
                     </button>
                     <button 
                       onClick={handlePayment}
                       disabled={submitting}
-                      className="flex-[2] bg-slate-900 text-white py-6 rounded-[24px] font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-2 bg-slate-900 text-white py-6 rounded-3xl font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {submitting ? (
                         <>
@@ -762,7 +838,7 @@ const Checkout: React.FC = () => {
                     </>
                   ) : (
                     <div className="flex justify-between text-sm font-medium">
-                      <span className="text-slate-400 uppercase tracking-widest text-[10px]">Tax & VAT ({property.taxRate ?? 12}%)</span>
+                      <span className="text-slate-400 uppercase tracking-widest text-[10px]">Tax & VAT ({displayListing?.taxRate ?? 12}%)</span>
                       <span className="text-slate-900 font-bold">₹{pricing.tax.toLocaleString()}</span>
                     </div>
                   )}

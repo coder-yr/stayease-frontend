@@ -227,7 +227,7 @@ const Login = () => {
         className="hidden lg:block lg:flex-1 relative"
         initial={{ opacity: 0, scale: 1.05 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1, ease: "easeOut" }}
+        transition={{ duration: 1, ease: "easeOut" as const }}
       >
         <div className="absolute inset-0 w-full h-full">
           <img

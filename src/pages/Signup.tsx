@@ -53,7 +53,7 @@ const Signup = () => {
       navigate(accountType === 'owner' ? '/owner/dashboard' : '/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Signup failed';
-      setError(message.includes('{') ? 'Unable to create account. Please try again.' : message);
+      setError(message || 'Unable to create account. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -70,12 +70,12 @@ const Signup = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: any = {
     hidden: { opacity: 0, y: 20 },
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }
+      transition: { duration: 0.5, ease: "easeOut" as const }
     }
   };
 
@@ -92,7 +92,7 @@ const Signup = () => {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+            transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] as const }}
           >
             <Link to="/" className="flex items-center gap-2 mb-12">
               <span className="text-3xl font-display font-bold text-brand-primary tracking-tight">Stay<span className="text-brand-accent italic font-serif">Ease</span></span>
@@ -169,6 +169,7 @@ const Signup = () => {
                   <input
                     type="text"
                     required
+                    minLength={2}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 transition-all outline-none text-brand-primary shadow-sm"
@@ -203,12 +204,14 @@ const Signup = () => {
                   <input
                     type="password"
                     required
+                    minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-4 focus:ring-brand-accent/10 focus:border-brand-accent/50 transition-all outline-none text-brand-primary shadow-sm"
                     placeholder="••••••••"
                   />
                 </div>
+                <p className="mt-2 text-xs text-slate-500">Password must be at least 8 characters.</p>
               </motion.div>
 
               <motion.div variants={itemVariants}>
@@ -242,7 +245,7 @@ const Signup = () => {
         className="hidden lg:block lg:flex-1 relative"
         initial={{ opacity: 0, scale: 1.05 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1, ease: "easeOut" }}
+        transition={{ duration: 1, ease: "easeOut" as const }}
       >
         <div className="absolute inset-0 w-full h-full">
           <img

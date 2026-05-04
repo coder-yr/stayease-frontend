@@ -87,6 +87,7 @@ const Navbar: React.FC = () => {
     { name: 'Flights', path: '/flights' },
     { name: 'Hotels', path: '/hotels' },
     { name: 'PG / Rooms', path: '/pg' },
+    { name: 'Packages', path: '/tours' },
   ];
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {

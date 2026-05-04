@@ -27,7 +27,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
     <motion.div 
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ delay: index * 0.1, duration: 0.8, ease: [0.22, 1, 0.36, 1] as const }}
       onClick={() => onClick?.(property.id)}
       className="group bg-white rounded-[48px] overflow-hidden border border-slate-100 hover:border-brand-accent/20 hover:shadow-[0_40px_80px_-20px_rgba(6,78,59,0.1)] transition-all duration-700 cursor-pointer flex flex-col relative hover:-translate-y-2"
       role="article"

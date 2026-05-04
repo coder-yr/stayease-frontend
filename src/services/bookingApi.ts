@@ -4,7 +4,11 @@ export interface BookingCreateRequest {
   type: string;
   travelDate: string;
   hotelId?: string;
+  packageId?: string;
   flightData?: any;
+  packageData?: any;
+  busData?: any;
+  trainData?: any;
   totalAmount: number;
   currency?: string;
   metadata?: {
@@ -19,6 +23,8 @@ export interface BookingCreateRequest {
     nights?: number;
     checkInDate?: string;
     checkOutDate?: string;
+    packageName?: string;
+    packageDestination?: string;
   };
 }
 
@@ -27,11 +33,15 @@ export interface Booking {
   userId: string;
   type: string;
   travelDate: string;
-  hotelId: string;
+  hotelId?: string;
+  packageId?: string;
   status: string;
   totalAmount: number;
   currency: string;
   metadata?: Record<string, unknown>;
+  packageData?: Record<string, unknown>;
+  busData?: Record<string, unknown>;
+  trainData?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

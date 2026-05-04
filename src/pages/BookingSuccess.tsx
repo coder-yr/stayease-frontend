@@ -13,6 +13,7 @@ import {
 import { motion } from 'motion/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { propertyApi, Property } from '../services/propertyApi';
+import { packageApi, TourPackage } from '../services/packageApi';
 import { bookingApi, Booking } from '../services/bookingApi';
 
 const BookingSuccess: React.FC = () => {
@@ -20,6 +21,7 @@ const BookingSuccess: React.FC = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = React.useState<Booking | null>(null);
   const [property, setProperty] = React.useState<Property | null>(null);
+  const [travelPackage, setTravelPackage] = React.useState<TourPackage | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -30,10 +32,14 @@ const BookingSuccess: React.FC = () => {
         const bookingData = await bookingApi.getBooking(id);
         setBooking(bookingData);
         
-        // Fetch property details
         if (bookingData.hotelId) {
           const propData = await propertyApi.getPropertyById(bookingData.hotelId);
           setProperty(propData || null);
+          setTravelPackage(null);
+        } else if (bookingData.packageId) {
+          const packageData = await packageApi.getPackageById(bookingData.packageId);
+          setTravelPackage(packageData || null);
+          setProperty(null);
         }
       } catch (error) {
         console.error('Failed to fetch booking:', error);
@@ -63,6 +69,12 @@ const BookingSuccess: React.FC = () => {
       </div>
     );
   }
+
+  const isPackageBooking = booking.type === 'package' || !!booking.packageId;
+  const displayName = property?.name ?? travelPackage?.name ?? (booking.metadata?.packageName as string | undefined) ?? 'Your booking';
+  const displayLocation = property?.location ?? travelPackage?.destination ?? (booking.metadata?.packageDestination as string | undefined) ?? 'TBA';
+  const displayImage = property?.image ?? travelPackage?.images?.[0] ?? 'https://images.unsplash.com/photo-1502920917128-1aa500764b2a?auto=format&fit=crop&w=1200&q=80';
+  const displayRating = property?.rating ?? 4.8;
 
   // Format check-in date from booking.travelDate
   const formattedCheckIn = booking.travelDate
@@ -99,7 +111,7 @@ const BookingSuccess: React.FC = () => {
             <span className="h-px w-12 bg-brand-accent/20"></span>
           </div>
           <h1 className="text-6xl font-display font-bold text-slate-900 uppercase tracking-tighter leading-none">
-            Your Sanctuary <br />
+            {isPackageBooking ? 'Your Journey' : 'Your Sanctuary'} <br />
             <span className="text-brand-accent italic serif-italic">Awaits.</span>
           </h1>
           <p className="text-slate-400 font-serif italic text-lg">
@@ -119,16 +131,16 @@ const BookingSuccess: React.FC = () => {
             <p className="text-2xl font-display font-bold text-slate-900 tabular-nums font-mono">{booking.id}</p>
           </div>
 
-          {property && (
+              {(property || travelPackage) && (
             <div className="flex flex-col md:flex-row gap-8 items-center border-b border-slate-50 pb-10">
               <div className="w-32 h-32 rounded-[32px] overflow-hidden shadow-xl shrink-0">
-                <img src={property.image} alt={property.name} className="w-full h-full object-cover" />
+                <img src={displayImage} alt={displayName} className="w-full h-full object-cover" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-display font-bold text-slate-900 tracking-tight uppercase">{property.name}</h3>
+                <h3 className="text-2xl font-display font-bold text-slate-900 tracking-tight uppercase">{displayName}</h3>
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
                   <MapPin className="w-4 h-4 text-brand-accent" />
-                  {property.location}
+                  {displayLocation}
                 </div>
               </div>
             </div>
@@ -182,10 +194,10 @@ const BookingSuccess: React.FC = () => {
             Go to Dashboard
           </button>
           <button 
-            onClick={() => navigate('/')}
+            onClick={() => navigate(isPackageBooking ? '/tours' : '/')}
             className="px-12 py-5 bg-white text-slate-900 border border-slate-100 rounded-full font-bold text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 transition-all shadow-sm active:scale-95"
           >
-            Back to Home
+            {isPackageBooking ? 'Back to Packages' : 'Back to Home'}
           </button>
         </div>
 

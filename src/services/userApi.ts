@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./apiClient";
+import { apiGet, apiPost, getAccessToken } from "./apiClient";
 
 export type OwnerApplicationStatus = "pending" | "approved" | "rejected";
 
@@ -31,14 +31,23 @@ export interface UserProfile {
 
 export const userApi = {
   getProfile: async (): Promise<UserProfile> => {
+    if (!getAccessToken()) {
+      throw new Error('No access token available');
+    }
     return apiGet<UserProfile>("/auth/me");
   },
 
   updateProfile: async (data: Partial<UserProfile>): Promise<UserProfile> => {
+    if (!getAccessToken()) {
+      throw new Error('No access token available');
+    }
     return apiPost<UserProfile>("/auth/me", data);
   },
 
   getSavedProperties: async (): Promise<string[]> => {
+    if (!getAccessToken()) {
+      return [];
+    }
     const profile = await apiGet<UserProfile>("/auth/me");
     return profile.savedIds || [];
   },

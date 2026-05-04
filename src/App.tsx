@@ -13,6 +13,9 @@ import HotelListings from './pages/HotelListings';
 import StudentHousing from './pages/StudentHousing';
 import PropertyDetail from './pages/PropertyDetail';
 import AIAssistant from './pages/AIAssistant';
+import TripPlanner from './pages/TripPlanner';
+import ToursAndPackages from './pages/ToursAndPackages';
+import PackageDetail from './pages/PackageDetail';
 import Checkout from './pages/Checkout';
 import BookingSuccess from './pages/BookingSuccess';
 import Journal from './pages/Journal';
@@ -52,7 +55,7 @@ const AnimatedRoutes = () => {
             initial={{ opacity: 0, scale: 0.99, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.99, y: -10 }}
-            transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+            transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] as const }}
             className="flex-1 flex flex-col w-full origin-top"
           >
             <Routes location={location}>
@@ -62,7 +65,11 @@ const AnimatedRoutes = () => {
               <Route path="/pg"                  element={<StudentHousing />} />
               <Route path="/property/:id"        element={<PropertyDetail />} />
               <Route path="/ai"                  element={<AIAssistant />} />
+              <Route path="/planner"             element={<TripPlanner />} />
+              <Route path="/tours"               element={<ToursAndPackages />} />
+              <Route path="/packages/:id"        element={<PackageDetail />} />
               <Route path="/checkout/:id"        element={<Checkout />} />
+              <Route path="/checkout"            element={<Checkout />} />
               <Route path="/booking-success/:id" element={<BookingSuccess />} />
               <Route path="/journal"             element={<Journal />} />
               <Route path="/login"               element={<Login />} />

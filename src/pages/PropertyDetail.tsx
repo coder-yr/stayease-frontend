@@ -216,7 +216,7 @@ const PropertyDetail: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, ease: 'easeOut' }}
+              transition={{ duration: 0.45, ease: 'easeOut' as const }}
               className="space-y-8 md:space-y-12"
             >
               <div className="flex flex-wrap gap-3">

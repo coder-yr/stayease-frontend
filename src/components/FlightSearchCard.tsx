@@ -272,8 +272,9 @@ const FlightSearchCard: React.FC<FlightSearchCardProps> = ({
               >
                 <div className="fixed inset-0 z-[-1]" onClick={() => setShowDatePicker(false)}></div>
                 <CustomCalendar 
-                  onChange={(d) => { setDate(d); setShowDatePicker(false); }} 
-                  initialDate={date}
+                  onSelect={(d) => { setDate(d); setShowDatePicker(false); }} 
+                  selectedDate={date}
+                  onClose={() => setShowDatePicker(false)}
                 />
               </div>
             )}
