@@ -13,7 +13,7 @@ type ApiErrorEnvelope = {
 const trimSlash = (value: string) => value.replace(/\/+$/, "");
 
 export const API_BASE_URL = trimSlash(
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api"
+  import.meta.env.VITE_API_BASE_URL ?? "https://stayease-backend-2.onrender.com/api"
 );
 
 const parseJsonToken = (value: string): string | null => {
@@ -88,7 +88,7 @@ export const apiGet = async <T>(path: string, init?: RequestInit): Promise<T> =>
       }
     });
   } catch {
-    throw new Error("Unable to reach API server. Ensure backend is running on http://localhost:4000.");
+    throw new Error("Unable to reach API server. Ensure backend is reachable at https://stayease-backend-2.onrender.com.");
   }
 
   if (!response.ok) {
@@ -113,7 +113,7 @@ export const apiPost = async <T>(path: string, body?: unknown, init?: RequestIni
       body: body ? JSON.stringify(body) : undefined
     });
   } catch {
-    throw new Error("Unable to reach API server. Ensure backend is running on http://localhost:4000.");
+    throw new Error("Unable to reach API server. Ensure backend is reachable at https://stayease-backend-2.onrender.com.");
   }
 
   if (!response.ok) {
@@ -138,7 +138,7 @@ export const apiPut = async <T>(path: string, body?: unknown, init?: RequestInit
       body: body ? JSON.stringify(body) : undefined
     });
   } catch {
-    throw new Error("Unable to reach API server. Ensure backend is running on http://localhost:4000.");
+    throw new Error("Unable to reach API server. Ensure backend is reachable at https://stayease-backend-2.onrender.com.");
   }
 
   if (!response.ok) {
@@ -163,7 +163,7 @@ export const apiPatch = async <T>(path: string, body?: unknown, init?: RequestIn
       body: body ? JSON.stringify(body) : undefined
     });
   } catch {
-    throw new Error("Unable to reach API server. Ensure backend is running on http://localhost:4000.");
+    throw new Error("Unable to reach API server. Ensure backend is reachable at https://stayease-backend-2.onrender.com.");
   }
 
   if (!response.ok) {
@@ -187,7 +187,7 @@ export const apiDelete = async <T>(path: string, init?: RequestInit): Promise<T>
       }
     });
   } catch {
-    throw new Error("Unable to reach API server. Ensure backend is running on http://localhost:4000.");
+    throw new Error("Unable to reach API server. Ensure backend is reachable at https://stayease-backend-2.onrender.com.");
   }
 
   if (!response.ok) {
