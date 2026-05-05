@@ -71,8 +71,11 @@ const BookingSuccess: React.FC = () => {
   }
 
   const isPackageBooking = booking.type === 'package' || !!booking.packageId;
-  const displayName = property?.name ?? travelPackage?.name ?? (booking.metadata?.packageName as string | undefined) ?? 'Your booking';
-  const displayLocation = property?.location ?? travelPackage?.destination ?? (booking.metadata?.packageDestination as string | undefined) ?? 'TBA';
+  const isFlightBooking = booking.type === 'flight';
+  const isTrainBooking = booking.type === 'train';
+  
+  const displayName = property?.name ?? travelPackage?.name ?? (booking.metadata?.packageName as string | undefined) ?? (isTrainBooking ? (booking.trainData as any)?.operator : 'Your booking');
+  const displayLocation = property?.location ?? travelPackage?.destination ?? (booking.metadata?.packageDestination as string | undefined) ?? (isTrainBooking ? `${(booking.trainData as any)?.source} to ${(booking.trainData as any)?.destination}` : 'TBA');
   const displayImage = property?.image ?? travelPackage?.images?.[0] ?? 'https://images.unsplash.com/photo-1502920917128-1aa500764b2a?auto=format&fit=crop&w=1200&q=80';
   const displayRating = property?.rating ?? 4.8;
 
@@ -150,24 +153,34 @@ const BookingSuccess: React.FC = () => {
              <div className="space-y-4">
                 <div className="flex items-center gap-3 text-brand-accent">
                   <Calendar className="w-5 h-5" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest font-sans">Check-in</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest font-sans">
+                    {isFlightBooking || isTrainBooking ? 'Departure' : 'Check-in'}
+                  </span>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xl font-bold text-slate-900 uppercase tracking-tight">{formattedCheckIn}</p>
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                    <Clock className="w-3 h-3 text-slate-300" /> After 2:00 PM
+                    <Clock className="w-3 h-3 text-slate-300" /> 
+                    {isFlightBooking && booking.flightData ? (booking.flightData as any).departure 
+                      : isTrainBooking && booking.trainData ? new Date((booking.trainData as any).departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                      : 'After 2:00 PM'}
                   </p>
                 </div>
              </div>
              <div className="space-y-4">
                 <div className="flex items-center gap-3 text-brand-accent">
                   <Calendar className="w-5 h-5" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest font-sans">Check-out</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest font-sans">
+                    {isFlightBooking || isTrainBooking ? 'Arrival' : 'Check-out'}
+                  </span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xl font-bold text-slate-900 uppercase tracking-tight">{formattedCheckOut}</p>
+                  <p className="text-xl font-bold text-slate-900 uppercase tracking-tight">{isFlightBooking || isTrainBooking ? formattedCheckIn : formattedCheckOut}</p>
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                    <Clock className="w-3 h-3 text-slate-300" /> Before 11:00 AM
+                    <Clock className="w-3 h-3 text-slate-300" /> 
+                    {isFlightBooking && booking.flightData ? (booking.flightData as any).arrival 
+                      : isTrainBooking && booking.trainData ? new Date((booking.trainData as any).arrivalTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                      : 'Before 11:00 AM'}
                   </p>
                 </div>
              </div>

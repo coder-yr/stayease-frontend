@@ -12,7 +12,13 @@ import {
   ArrowRight, 
   Smartphone, 
   Wallet,
-  AlertCircle
+  AlertCircle,
+  Tag,
+  ShoppingBag,
+  Receipt,
+  Sparkles,
+  Check,
+  GraduationCap
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -20,6 +26,7 @@ import { propertyApi, Property } from '../services/propertyApi';
 import { packageApi, TourPackage } from '../services/packageApi';
 import { bookingApi } from '../services/bookingApi';
 import { paymentApi } from '../services/paymentApi';
+import { walletApi, WalletInfo } from '../services/walletApi';
 import { getAccessToken } from '../services/apiClient';
 import Toast, { useToast } from '../components/Toast';
 
@@ -57,25 +64,7 @@ const normalizeBookingDates = (checkInRaw: string | null, checkOutRaw: string | 
   return { checkIn, checkOut: addDays(checkIn, 7) };
 };
 
-// Moved to top to avoid hoisting issues
-const GraduationCap = ({ className }: { className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-    aria-hidden="true"
-  >
-    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-  </svg>
-);
+
 
 const Checkout: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +77,11 @@ const Checkout: React.FC = () => {
   const [submitting, setSubmitting] = React.useState(false);
   const [termsAccepted, setTermsAccepted] = React.useState(false);
   const [coupon, setCoupon] = React.useState('');
+  const [promoDiscount, setPromoDiscount] = React.useState(0);
+  const [promoCodeApplied, setPromoCodeApplied] = React.useState(false);
+  const [wallet, setWallet] = React.useState<WalletInfo | null>(null);
+  const [paymentMethod, setPaymentMethod] = React.useState<'card' | 'wallet' | 'upi'>('wallet');
+  const [upiId, setUpiId] = React.useState('');
   const [hasAuthToken, setHasAuthToken] = React.useState(!!getAccessToken());
   
   const [searchParams] = useSearchParams();
@@ -151,6 +145,15 @@ const Checkout: React.FC = () => {
     };
     fetchItem();
   }, [id, isPackageCheckout, packageId]);
+
+  React.useEffect(() => {
+    if (hasAuthToken) {
+      walletApi.getWalletInfo().then(setWallet).catch(() => {
+        // Fallback mock if API fails
+        setWallet({ balance: 125000, loyaltyPoints: 450, tier: 'Explorer' });
+      });
+    }
+  }, [hasAuthToken]);
 
   // Keep auth state in sync if token changes after sign-in.
   React.useEffect(() => {
@@ -244,14 +247,18 @@ const Checkout: React.FC = () => {
   const bookingRating = Number(displayListing?.rating ?? 4.8);
 
   const pricing = React.useMemo(() => {
-    if (!displayListing) return { base: 0, service: 0, tax: 0, deposit: 0, discount: 0, total: 0 };
+    if (!displayListing) return { base: 0, service: 0, cleaning: 0, tax: 0, deposit: 0, discount: 0, promo: 0, total: 0 };
+
+    const cleaning = isPG ? 0 : 450;
+    const promo = promoDiscount;
 
     if (isPackageCheckout && travelPackage) {
       const base = Number(travelPackage.price ?? 0);
       const service = 1200;
       const tax = Math.round(base * 0.05);
       const discount = 0;
-      return { base, service, tax, deposit: 0, discount, total: Math.round(base + service + tax - discount) };
+      const subtotal = base + service + cleaning + tax;
+      return { base, service, cleaning, tax, deposit: 0, discount, promo, total: Math.round(subtotal - discount - promo) };
     }
     
     const baseInr = displayListing.price * (displayListing.price < 500 ? 84 : 1);
@@ -261,16 +268,23 @@ const Checkout: React.FC = () => {
       const service = 1200;
       const deposit = baseInr * 0.2;
       const discount = 3500;
-      return { base, service, tax: 0, deposit, discount, total: base + service + deposit - discount };
+      const subtotal = base + service + deposit;
+      return { base, service, cleaning: 0, tax: 0, deposit, discount, promo, total: Math.round(subtotal - discount - promo) };
     } else {
       const base = baseInr * nights;
-      const service = 1500;
-      const taxPercent = (displayListing.taxRate ?? 12) / 100;
-      const tax = Math.round(base * taxPercent);
-      const discount = 0;
-      return { base, service, tax, deposit: 0, discount, total: Math.round(base + service + tax - discount) };
+      // Simplify to price * nights as requested
+      return { 
+        base, 
+        service: 0, 
+        cleaning: 0, 
+        tax: 0, 
+        deposit: 0, 
+        discount: 0, 
+        promo: 0, 
+        total: Math.round(base) 
+      };
     }
-  }, [displayListing, isPG, isPackageCheckout, travelPackage, nights]);
+  }, [displayListing, isPG, isPackageCheckout, travelPackage, nights, promoDiscount]);
 
   const totalAmount = pricing.total;
 
@@ -324,18 +338,36 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    if (!card.number.trim() || card.number.replace(/\s/g, '').length < 16) {
-      addToast('error', 'Invalid Card', 'Please enter a valid 16-digit card number.');
-      return;
+    if (paymentMethod === 'card') {
+      if (!card.number.trim() || card.number.replace(/\s/g, '').length < 16) {
+        addToast('error', 'Invalid Card', 'Please enter a valid 16-digit card number.');
+        return;
+      }
+      if (!card.expiry.trim() || !/^\d{2}\/\d{2}$/.test(card.expiry)) {
+        addToast('error', 'Invalid Expiry', 'Please enter expiry in MM/YY format.');
+        return;
+      }
+      if (!card.cvv.trim() || card.cvv.length < 3) {
+        addToast('error', 'Invalid CVV', 'Please enter a valid CVV code.');
+        return;
+      }
+    } else if (paymentMethod === 'wallet') {
+      if ((wallet?.balance || 0) < totalAmount) {
+        addToast('error', 'Insufficient Funds', 'Your wallet balance is too low for this booking.');
+        return;
+      }
+    } else if (paymentMethod === 'card') {
+      if (!card.number || !card.expiry || !card.cvv) {
+        addToast('error', 'Missing Card Details', 'Please fill in all card details.');
+        return;
+      }
+    } else if (paymentMethod === 'upi') {
+      if (!upiId || !/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
+        addToast('error', 'Invalid UPI ID', 'Please enter a valid UPI ID (e.g., name@okbank).');
+        return;
+      }
     }
-    if (!card.expiry.trim() || !/^\d{2}\/\d{2}$/.test(card.expiry)) {
-      addToast('error', 'Invalid Expiry', 'Please enter expiry in MM/YY format.');
-      return;
-    }
-    if (!card.cvv.trim() || card.cvv.length < 3) {
-      addToast('error', 'Invalid CVV', 'Please enter a valid CVV code.');
-      return;
-    }
+
     if (!termsAccepted) {
       addToast('error', 'Terms Required', 'Please accept the Terms of Service to proceed.');
       return;
@@ -371,6 +403,7 @@ const Checkout: React.FC = () => {
         metadata: {
           name: form.name,
           email: form.email,
+          paymentMethod,
           ...(isPG ? {
             university: form.university,
             studentId: form.studentId,
@@ -653,91 +686,172 @@ const Checkout: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-6" role="group" aria-label="Payment method">
-                    <button className="p-8 border-2 border-slate-900 bg-slate-900 text-white rounded-4xl flex flex-col items-center gap-4 transition-all shadow-2xl" aria-pressed="true">
-                      <CreditCard className="w-8 h-8" aria-hidden="true" />
-                      <span className="text-[10px] font-bold tracking-[0.2em] uppercase">CARD</span>
+                    <button 
+                      onClick={() => setPaymentMethod('wallet')}
+                      className={`p-8 border-2 rounded-4xl flex flex-col items-center gap-4 transition-all ${paymentMethod === 'wallet' ? 'border-slate-900 bg-slate-900 text-white shadow-2xl' : 'border-slate-50 bg-slate-50 text-slate-300 hover:border-emerald-100'}`}
+                    >
+                      <Wallet className={`w-8 h-8 ${paymentMethod === 'wallet' ? 'text-brand-accent' : ''}`} aria-hidden="true" />
+                      <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${paymentMethod === 'wallet' ? 'text-white' : 'text-slate-400'}`}>WALLET</span>
                     </button>
-                    <button className="p-8 border-2 border-slate-50 hover:border-emerald-100 bg-slate-50 rounded-4xl flex flex-col items-center gap-4 transition-all group" aria-pressed="false">
-                      <Smartphone className="w-8 h-8 text-slate-300 group-hover:text-emerald-600 transition-colors" aria-hidden="true" />
-                      <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 group-hover:text-slate-900 transition-colors">APPLE PAY</span>
+                    <button 
+                      onClick={() => setPaymentMethod('card')}
+                      className={`p-8 border-2 rounded-4xl flex flex-col items-center gap-4 transition-all ${paymentMethod === 'card' ? 'border-slate-900 bg-slate-900 text-white shadow-2xl' : 'border-slate-50 bg-slate-50 text-slate-300 hover:border-emerald-100'}`}
+                    >
+                      <CreditCard className={`w-8 h-8 ${paymentMethod === 'card' ? 'text-brand-accent' : ''}`} aria-hidden="true" />
+                      <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${paymentMethod === 'card' ? 'text-white' : 'text-slate-400'}`}>CARD</span>
                     </button>
-                    <button className="p-8 border-2 border-slate-50 hover:border-emerald-100 bg-slate-50 rounded-4xl flex flex-col items-center gap-4 transition-all group" aria-pressed="false">
-                      <Wallet className="w-8 h-8 text-slate-300 group-hover:text-emerald-600 transition-colors" aria-hidden="true" />
-                      <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400 group-hover:text-slate-900 transition-colors">CRYPTO</span>
+                    <button 
+                      onClick={() => setPaymentMethod('upi')}
+                      className={`p-8 border-2 rounded-4xl flex flex-col items-center gap-4 transition-all ${paymentMethod === 'upi' ? 'border-slate-900 bg-slate-900 text-white shadow-2xl' : 'border-slate-50 bg-slate-50 text-slate-300 hover:border-emerald-100'}`}
+                    >
+                      <Smartphone className={`w-8 h-8 ${paymentMethod === 'upi' ? 'text-brand-accent' : ''}`} aria-hidden="true" />
+                      <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${paymentMethod === 'upi' ? 'text-white' : 'text-slate-400'}`}>UPI</span>
                     </button>
                   </div>
 
-                  <div className="space-y-8">
-                    <div className="space-y-3">
-                      <label htmlFor="card-number" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Card Number</label>
-                      <div className="relative">
-                        <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" aria-hidden="true" />
-                        <input
-                          id="card-number"
-                          type="text"
-                          placeholder="0000 0000 0000 0000"
-                          maxLength={19}
-                          value={card.number}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 16);
-                            setCard(prev => ({ ...prev, number: val.replace(/(.{4})/g, '$1 ').trim() }));
-                          }}
-                          className="w-full pl-16 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent focus:bg-white transition-all outline-none"
-                          inputMode="numeric"
-                          autoComplete="cc-number"
-                        />
+                  {paymentMethod === 'wallet' && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="bg-emerald-50/50 rounded-[40px] p-10 border border-emerald-100 space-y-8"
+                    >
+                      <div className="flex items-center justify-between">
+                         <div className="space-y-1">
+                           <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">WALLET BALANCE</div>
+                           <div className="text-4xl font-display font-bold text-slate-900">₹{(wallet?.balance || 0).toLocaleString()}</div>
+                         </div>
+                         <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
+                           <Check className="w-6 h-6" />
+                         </div>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-3">
-                        <label htmlFor="card-expiry" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Expiry Date</label>
-                        <input
-                          id="card-expiry"
-                          type="text"
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          value={card.expiry}
-                          onChange={(e) => {
-                            let val = e.target.value.replace(/\D/g, '');
-                            if (val.length >= 3) val = val.slice(0, 2) + '/' + val.slice(2, 4);
-                            setCard(prev => ({ ...prev, expiry: val }));
-                          }}
-                          className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent focus:bg-white transition-all outline-none"
-                          inputMode="numeric"
-                          autoComplete="cc-exp"
-                        />
+
+                      <div className="p-6 bg-white/80 backdrop-blur-md rounded-3xl border border-emerald-100/50 space-y-4">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500 font-medium">Payment Amount</span>
+                          <span className="text-slate-900 font-bold">₹{totalAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm pt-4 border-t border-slate-100">
+                          <span className="text-slate-500 font-medium">Balance After Deduction</span>
+                          <span className={`font-bold ${(wallet?.balance || 0) < totalAmount ? 'text-rose-500' : 'text-emerald-600'}`}>
+                            ₹{((wallet?.balance || 0) - totalAmount).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
+
+                      {(wallet?.balance || 0) < totalAmount && (
+                         <div className="flex items-center gap-3 text-rose-600">
+                           <AlertCircle className="w-4 h-4" />
+                           <span className="text-[10px] font-bold uppercase tracking-widest">Insufficient funds. Please top up in Dashboard.</span>
+                         </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="space-y-8">
                       <div className="space-y-3">
-                        <label htmlFor="card-cvv" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">CVV</label>
+                        <label htmlFor="card-number" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Card Number</label>
                         <div className="relative">
-                          <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" aria-hidden="true" />
+                          <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" aria-hidden="true" />
                           <input
-                            id="card-cvv"
-                            type="password"
-                            placeholder="***"
-                            maxLength={4}
-                            value={card.cvv}
-                            onChange={(e) => setCard(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                            id="card-number"
+                            type="text"
+                            placeholder="0000 0000 0000 0000"
+                            maxLength={19}
+                            value={card.number}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                              setCard(prev => ({ ...prev, number: val.replace(/(.{4})/g, '$1 ').trim() }));
+                            }}
                             className="w-full pl-16 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent focus:bg-white transition-all outline-none"
                             inputMode="numeric"
-                            autoComplete="cc-csc"
+                            autoComplete="cc-number"
                           />
                         </div>
                       </div>
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-3">
+                          <label htmlFor="card-expiry" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">Expiry Date</label>
+                          <input
+                            id="card-expiry"
+                            type="text"
+                            placeholder="MM/YY"
+                            maxLength={5}
+                            value={card.expiry}
+                            onChange={(e) => {
+                              let val = e.target.value.replace(/\D/g, '');
+                              if (val.length >= 3) val = val.slice(0, 2) + '/' + val.slice(2, 4);
+                              setCard(prev => ({ ...prev, expiry: val }));
+                            }}
+                            className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent focus:bg-white transition-all outline-none"
+                            inputMode="numeric"
+                            autoComplete="cc-exp"
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          <label htmlFor="card-cvv" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">CVV</label>
+                          <div className="relative">
+                            <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" aria-hidden="true" />
+                            <input
+                              id="card-cvv"
+                              type="password"
+                              placeholder="***"
+                              maxLength={4}
+                              value={card.cvv}
+                              onChange={(e) => setCard(prev => ({ ...prev, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                              className="w-full pl-16 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent focus:bg-white transition-all outline-none"
+                              inputMode="numeric"
+                              autoComplete="cc-csc"
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                  <div className="bg-slate-50 rounded-4xl p-8 border border-slate-100 flex items-center gap-6">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm shrink-0">
-                      <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+                      <div className="bg-slate-50 rounded-4xl p-8 border border-slate-100 flex items-center gap-6">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm shrink-0">
+                          <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-slate-900 uppercase tracking-widest text-[10px]">Secure Encryption</h4>
+                          <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                            Your payment information is encrypted with industry-standard 256-bit SSL.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-slate-900 uppercase tracking-widest text-[10px]">Secure Encryption</h4>
-                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                        Your payment information is encrypted with industry-standard 256-bit SSL.
-                      </p>
+                  )}
+
+                  {paymentMethod === 'upi' && (
+                    <div className="space-y-8">
+                      <div className="space-y-3">
+                        <label htmlFor="upi-id" className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 ml-1">UPI ID</label>
+                        <div className="relative">
+                          <Smartphone className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" aria-hidden="true" />
+                          <input
+                            id="upi-id"
+                            type="text"
+                            placeholder="yourname@bank"
+                            value={upiId}
+                            onChange={(e) => setUpiId(e.target.value.toLowerCase())}
+                            className="w-full pl-16 pr-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent focus:bg-white transition-all outline-none"
+                            autoComplete="off"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-4xl p-8 border border-slate-100 flex items-center gap-6">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-accent shadow-sm shrink-0">
+                          <ShieldCheck className="w-6 h-6" aria-hidden="true" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-slate-900 uppercase tracking-widest text-[10px]">Secure UPI Payment</h4>
+                          <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                            A payment request will be sent to your UPI app. Please approve it to complete the booking.
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-8">
@@ -748,20 +862,37 @@ const Checkout: React.FC = () => {
                       placeholder="COUPON CODE" 
                       value={coupon}
                       onChange={(e) => setCoupon(e.target.value.toUpperCase())}
-                      className="w-full pl-6 pr-24 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold tracking-widest uppercase focus:ring-2 focus:ring-brand-accent focus:bg-white transition-all outline-none"
+                      disabled={promoCodeApplied}
+                      className="w-full pl-6 pr-24 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-bold tracking-widest uppercase focus:ring-2 focus:ring-brand-accent focus:bg-white transition-all outline-none disabled:opacity-50"
                       aria-label="Enter coupon code"
                     />
                     <button
-                      className="absolute right-2 top-2 bottom-2 px-4 bg-slate-900 text-white rounded-xl text-[10px] font-bold tracking-widest uppercase hover:bg-brand-accent transition-colors"
+                      className={`absolute right-2 top-2 bottom-2 px-6 rounded-xl text-[10px] font-bold tracking-widest uppercase transition-all ${promoCodeApplied ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white hover:bg-brand-accent'}`}
                       onClick={() => {
-                        if (coupon.trim()) {
+                        if (promoCodeApplied) return;
+                        if (coupon === 'STAYEASE20') {
+                          const discountVal = Math.round(pricing.base * 0.2);
+                          setPromoDiscount(discountVal);
+                          setPromoCodeApplied(true);
+                          addToast('success', 'Promo Applied!', `You saved ₹${discountVal.toLocaleString()} with STAYEASE20`);
+                        } else if (coupon.trim()) {
                           addToast('error', 'Invalid Code', `"${coupon}" is not a valid promo code.`);
                         }
                       }}
                     >
-                      APPLY
+                      {promoCodeApplied ? <Check className="w-4 h-4" /> : 'APPLY'}
                     </button>
                   </div>
+                  {promoCodeApplied && (
+                    <motion.p 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest ml-1 flex items-center gap-2"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      20% Discount applied successfully
+                    </motion.p>
+                  )}
 
                   {/* Terms checkbox */}
                   <div className="flex items-start gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
@@ -784,23 +915,29 @@ const Checkout: React.FC = () => {
                     >
                       BACK
                     </button>
-                    <button 
-                      onClick={handlePayment}
-                      disabled={submitting}
-                      className="flex-2 bg-slate-900 text-white py-6 rounded-3xl font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {submitting ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          PROCESSING...
-                        </>
-                      ) : (
-                        <>
-                          CONFIRM &amp; PAY ₹{totalAmount.toLocaleString()}
-                          <Lock className="w-5 h-5" aria-hidden="true" />
-                        </>
-                      )}
-                    </button>
+                      <button 
+                        onClick={handlePayment}
+                        disabled={
+                          submitting || 
+                          !termsAccepted || 
+                          (paymentMethod === 'wallet' && (wallet?.balance || 0) < totalAmount) ||
+                          (paymentMethod === 'card' && (!card.number || !card.expiry || !card.cvv)) ||
+                          (paymentMethod === 'upi' && !upiId)
+                        }
+                        className="flex-2 bg-slate-900 text-white py-6 rounded-3xl font-bold text-sm tracking-[0.2em] uppercase shadow-2xl hover:bg-brand-accent transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submitting ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            PROCESSING...
+                          </>
+                        ) : (
+                          <>
+                            {paymentMethod === 'wallet' ? 'PAY WITH WALLET' : `CONFIRM & PAY ₹${totalAmount.toLocaleString()}`}
+                            <Lock className="w-5 h-5" aria-hidden="true" />
+                          </>
+                        )}
+                      </button>
                   </div>
                 </div>
               </motion.div>
@@ -810,70 +947,173 @@ const Checkout: React.FC = () => {
           {/* Summary Sidebar */}
           <div className="lg:col-span-4">
             <div className="sticky top-40 space-y-8">
-              <div className="bg-white rounded-[40px] shadow-2xl border border-slate-100 p-10 space-y-10">
-                <div className="space-y-2">
-                  <h3 className="text-xl font-display font-bold text-slate-900 uppercase tracking-tight">Price Summary</h3>
-                  <div className="w-12 h-1 bg-brand-accent rounded-full" aria-hidden="true"></div>
-                </div>
+              <div className="bg-brand-primary rounded-[40px] shadow-2xl p-1 relative overflow-hidden group">
+                {/* Background Pattern */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-accent/10 rounded-full blur-[80px] -mr-32 -mt-32 transition-all duration-700 group-hover:bg-brand-accent/20"></div>
                 
-                <div className="space-y-6">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-slate-400 uppercase tracking-widest text-[10px]">{isPG ? 'Base Rent' : `${nights} Night Stay`}</span>
-                    <span className="text-slate-900 font-bold">₹{pricing.base.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-medium">
-                    <span className="text-slate-400 uppercase tracking-widest text-[10px]">Service Fee</span>
-                    <span className="text-slate-900 font-bold">₹{pricing.service.toLocaleString()}</span>
-                  </div>
-                  {isPG ? (
-                    <>
-                      <div className="flex justify-between text-sm font-medium">
-                        <span className="text-slate-400 uppercase tracking-widest text-[10px]">Security Deposit</span>
-                        <span className="text-slate-900 font-bold">₹{pricing.deposit.toLocaleString()}</span>
+                <div className="bg-brand-primary rounded-[38px] p-10 space-y-10 relative z-10">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-display font-bold text-white uppercase tracking-tight">Fare Summary</h3>
+                      <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-brand-accent border border-white/10">
+                        <Receipt className="w-5 h-5" />
                       </div>
-                      <div className="flex justify-between text-sm font-bold">
-                        <span className="text-brand-accent uppercase tracking-widest text-[10px]">Student Discount</span>
-                        <span className="text-brand-accent">-₹{pricing.discount.toLocaleString()}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between text-sm font-medium">
-                      <span className="text-slate-400 uppercase tracking-widest text-[10px]">Tax & VAT ({displayListing?.taxRate ?? 12}%)</span>
-                      <span className="text-slate-900 font-bold">₹{pricing.tax.toLocaleString()}</span>
                     </div>
-                  )}
-
-                  <div className="pt-8 border-t border-slate-100 flex justify-between items-end">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Total Amount</span>
-                      <div className="text-3xl font-display font-bold text-slate-900" aria-live="polite">₹{totalAmount.toLocaleString()}</div>
-                    </div>
+                    <div className="w-12 h-1 bg-brand-accent rounded-full opacity-50"></div>
                   </div>
                   
-                  <div className="space-y-4 pt-8 border-t border-slate-50">
-                    {['Instant Confirmation', 'No Hidden Fees', 'Secure Checkout'].map(item => (
-                      <div key={item} className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        <div className="w-2 h-2 bg-brand-accent rounded-full" aria-hidden="true"></div>
-                        {item}
+                  <div className="space-y-6">
+                    {/* Base Price */}
+                    <div className="flex justify-between items-center group/item">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover/item:text-brand-accent transition-colors">
+                          <ShoppingBag className="w-4 h-4" />
+                        </div>
+                        <span className="text-white/40 uppercase tracking-widest text-[9px] font-bold">{isPG ? 'Monthly Rent' : `${nights} Night Stay`}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                      <span className="text-white font-bold tabular-nums">₹{pricing.base.toLocaleString()}</span>
+                    </div>
 
-              <div className="bg-slate-950 rounded-[40px] p-10 text-white space-y-8 relative overflow-hidden group cursor-pointer" onClick={() => navigate('/support')}>
-                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/20 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-brand-accent/40 transition-all duration-500" aria-hidden="true"></div>
-                <div className="space-y-4 relative z-10">
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-brand-accent border border-white/10">
-                    <Info className="w-6 h-6" aria-hidden="true" />
+                    {/* Service Fee */}
+                    <div className="flex justify-between items-center group/item">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover/item:text-brand-accent transition-colors">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <span className="text-white/40 uppercase tracking-widest text-[9px] font-bold">StayEase Fee</span>
+                      </div>
+                      <span className="text-white font-bold tabular-nums">₹{pricing.service.toLocaleString()}</span>
+                    </div>
+
+                    {/* Cleaning Fee (if applicable) */}
+                    {pricing.cleaning > 0 && (
+                      <div className="flex justify-between items-center group/item">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover/item:text-brand-accent transition-colors">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <span className="text-white/40 uppercase tracking-widest text-[9px] font-bold">Cleaning & Prep</span>
+                        </div>
+                        <span className="text-white font-bold tabular-nums">₹{pricing.cleaning.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* Tax / Deposit */}
+                    {isPG ? (
+                      <div className="flex justify-between items-center group/item">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover/item:text-brand-accent transition-colors">
+                            <Wallet className="w-4 h-4" />
+                          </div>
+                          <span className="text-white/40 uppercase tracking-widest text-[9px] font-bold">Security Deposit</span>
+                        </div>
+                        <span className="text-white font-bold tabular-nums">₹{pricing.deposit.toLocaleString()}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center group/item">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white/40 group-hover/item:text-brand-accent transition-colors">
+                            <Info className="w-4 h-4" />
+                          </div>
+                          <span className="text-white/40 uppercase tracking-widest text-[9px] font-bold">Tax & VAT ({displayListing?.taxRate ?? 12}%)</span>
+                        </div>
+                        <span className="text-white font-bold tabular-nums">₹{pricing.tax.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {/* Discounts */}
+                    {(pricing.discount > 0 || pricing.promo > 0) && (
+                      <div className="pt-6 border-t border-white/5 space-y-4">
+                        {pricing.discount > 0 && (
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                <GraduationCap className="w-4 h-4" />
+                              </div>
+                              <span className="text-emerald-500 uppercase tracking-widest text-[9px] font-bold">Student Savings</span>
+                            </div>
+                            <span className="text-emerald-500 font-bold tabular-nums">-₹{pricing.discount.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {pricing.promo > 0 && (
+                          <motion.div 
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="flex justify-between items-center"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-brand-accent/10 flex items-center justify-center text-brand-accent">
+                                <Tag className="w-4 h-4" />
+                              </div>
+                              <span className="text-brand-accent uppercase tracking-widest text-[9px] font-bold">Promo: {coupon}</span>
+                            </div>
+                            <span className="text-brand-accent font-bold tabular-nums">-₹{pricing.promo.toLocaleString()}</span>
+                          </motion.div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="pt-10 border-t border-white/10 flex justify-between items-end">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.4em]">Amount Payable</span>
+                        <div className="text-5xl font-display font-bold text-brand-accent tracking-tighter leading-none" aria-live="polite">₹{pricing.total.toLocaleString()}</div>
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent animate-pulse">
+                        <Sparkles className="w-6 h-6" />
+                      </div>
+                    </div>
+
+                    {wallet && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-6 bg-white/5 rounded-3xl border border-white/10 space-y-3"
+                      >
+                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-white/40">
+                            <span>Your Wallet Balance</span>
+                            <span className="text-white">₹{wallet.balance.toLocaleString()}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-white/40">
+                            <span>Balance After Booking</span>
+                            <span className={(wallet.balance - totalAmount) < 0 ? 'text-rose-400' : 'text-brand-accent'}>
+                              ₹{(wallet.balance - totalAmount).toLocaleString()}
+                            </span>
+                         </div>
+                         {(wallet.balance - totalAmount) < 0 && (
+                            <div className="pt-2 text-[8px] font-bold text-rose-400 uppercase tracking-widest text-center animate-pulse">
+                              Insufficient funds to complete booking
+                            </div>
+                         )}
+                      </motion.div>
+                    )}
                   </div>
-                  <h4 className="text-xl font-display font-bold uppercase tracking-tight">Need Assistance?</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                    Our support team is available 24/7 to help you with your booking.
-                  </p>
                 </div>
-                <div className="flex items-center gap-2 text-brand-accent font-bold text-[10px] uppercase tracking-widest relative z-10">
-                  Contact Support <ArrowRight className="w-4 h-4" aria-hidden="true" />
+
+                {/* Benefits List */}
+                <div className="space-y-4 pt-4 border-t border-slate-50">
+                  {['Instant Confirmation', 'No Hidden Fees', 'Secure Checkout'].map(item => (
+                    <div key={item} className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <div className="w-2 h-2 bg-brand-accent rounded-full" aria-hidden="true"></div>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Support Card */}
+                <div className="bg-slate-950 rounded-[40px] p-10 text-white space-y-8 relative overflow-hidden group cursor-pointer" onClick={() => navigate('/support')}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/20 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-brand-accent/40 transition-all duration-500" aria-hidden="true"></div>
+                  <div className="space-y-4 relative z-10">
+                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-brand-accent border border-white/10">
+                      <Info className="w-6 h-6" aria-hidden="true" />
+                    </div>
+                    <h4 className="text-xl font-display font-bold uppercase tracking-tight">Need Assistance?</h4>
+                    <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                      Our support team is available 24/7 to help you with your booking.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-brand-accent font-bold text-[10px] uppercase tracking-widest relative z-10">
+                    Contact Support <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </div>
                 </div>
               </div>
             </div>

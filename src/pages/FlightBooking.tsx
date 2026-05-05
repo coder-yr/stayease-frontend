@@ -121,6 +121,10 @@ const FlightBooking: React.FC = () => {
       };
 
       const res = await bookingApi.createBooking(payload);
+      
+      // Confirm the booking using mock card payment to finalize it
+      await bookingApi.confirmBooking(res.id, 'card');
+      
       navigate(`/booking-success/${res.id}`, { state: { type: 'flight' } });
     } catch (error: any) {
       console.error("Booking failed:", error);

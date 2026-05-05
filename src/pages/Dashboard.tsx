@@ -24,7 +24,12 @@ import {
   Edit,
   Save,
   X,
-  Plane
+  Plane,
+  Search,
+  Filter,
+  ArrowDownRight,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -33,7 +38,7 @@ import { propertyApi, Property } from '../services/propertyApi';
 import { userApi, UserProfile } from '../services/userApi';
 import { walletApi, WalletInfo, Transaction } from '../services/walletApi';
 
-type TabId = 'dashboard' | 'bookings' | 'saved' | 'wallet' | 'settings';
+type TabId = 'dashboard' | 'bookings' | 'saved' | 'wallet' | 'settings' | 'owner';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -46,6 +51,9 @@ const Dashboard: React.FC = () => {
   const [transactions, setTransactions] = React.useState<Transaction[]>([]);
   const [savedProperties, setSavedProperties] = React.useState<Property[]>([]);
   const [realBookings, setRealBookings] = React.useState<(Booking & { property?: Property })[]>([]);
+  const [ownerProperties, setOwnerProperties] = React.useState<Property[]>([]);
+  const [ownerBookings, setOwnerBookings] = React.useState<Booking[]>([]);
+  const [isDeletingProperty, setIsDeletingProperty] = React.useState<string | null>(null);
   
   // UI States
   const [isLoading, setIsLoading] = React.useState(true);
@@ -53,6 +61,7 @@ const Dashboard: React.FC = () => {
   const [emailNotifications, setEmailNotifications] = React.useState(true);
   const [marketingOffers, setMarketingOffers] = React.useState(false);
   const [pushNotifications, setPushNotifications] = React.useState(true);
+  const [txSearchQuery, setTxSearchQuery] = React.useState('');
 
   React.useEffect(() => {
     const fetchDashboardData = async () => {
@@ -128,6 +137,22 @@ const Dashboard: React.FC = () => {
           );
           setSavedProperties(properties.filter(Boolean) as Property[]);
         }
+
+        // Fetch owner specific data if role matches
+        if (userData?.role === 'owner' || (userData as any)?.role === 'admin') {
+           const [ownerProps, ownerBooks] = await Promise.all([
+             propertyApi.getOwnerProperties().catch(err => {
+               console.error('❌ Failed to fetch owner properties:', err);
+               return [] as Property[];
+             }),
+             bookingApi.getOwnerBookings().catch(err => {
+               console.error('❌ Failed to fetch owner bookings:', err);
+               return [] as Booking[];
+             })
+           ]);
+           setOwnerProperties(ownerProps);
+           setOwnerBookings(ownerBooks);
+        }
       } catch (error) {
         console.error('💥 Critical error in dashboard fetch:', error);
       } finally {
@@ -156,13 +181,21 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const sidebarItems: { id: TabId; label: string; icon: React.ElementType }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'bookings', label: 'My Bookings', icon: Calendar },
-    { id: 'saved', label: 'Saved Listings', icon: Heart },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
-    { id: 'settings', label: 'Profile Settings', icon: Settings },
-  ];
+  const sidebarItems: { id: TabId; label: string; icon: React.ElementType }[] = React.useMemo(() => {
+    const items: { id: TabId; label: string; icon: React.ElementType }[] = [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'bookings', label: 'My Bookings', icon: Calendar },
+      { id: 'saved', label: 'Saved Listings', icon: Heart },
+      { id: 'wallet', label: 'Wallet', icon: Wallet },
+      { id: 'settings', label: 'Profile Settings', icon: Settings },
+    ];
+
+    if (profile?.role === 'owner' || (profile as any)?.role === 'admin') {
+      items.splice(1, 0, { id: 'owner', label: 'Owner Panel', icon: ShieldCheck });
+    }
+
+    return items;
+  }, [profile]);
 
   const Toggle = ({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) => (
     <button
@@ -463,62 +496,310 @@ const Dashboard: React.FC = () => {
 
           {/* ── WALLET TAB ── */}
           {activeTab === 'wallet' && (
-            <motion.div key="wallet" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-8">
-              <h1 className="text-4xl font-display font-bold text-slate-900 uppercase tracking-tight">My Wallet</h1>
-              
-              <div className="bg-brand-primary rounded-[40px] p-10 text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-brand-accent/20 rounded-full blur-3xl -mr-24 -mt-24" aria-hidden="true"></div>
-                <div className="relative z-10 space-y-8">
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold text-white/40 uppercase tracking-[0.4em]">Available Balance</div>
-                    <div className="text-6xl font-display font-bold tracking-tighter">₹{(wallet?.balance || 0).toLocaleString()}</div>
-                    <div className="text-xs text-brand-accent/80 font-bold">{wallet?.loyaltyPoints || 0} Loyalty Points — {wallet?.tier || 'Explorer'} Tier</div>
+            <motion.div key="wallet" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-10">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-brand-accent uppercase tracking-[0.3em]">FINANCIAL OVERVIEW</span>
+                    <span className="h-px w-8 bg-brand-accent/20" aria-hidden="true"></span>
                   </div>
-                  <div className="flex gap-4">
-                    <button 
-                      onClick={async () => {
-                         const updated = await walletApi.topUp(1000);
-                         setWallet(updated);
-                      }}
-                      className="flex-1 bg-white text-brand-primary py-4 rounded-2xl font-bold text-sm hover:bg-brand-accent hover:text-white transition-all shadow-lg"
-                    >
-                      Top Up ₹1,000
-                    </button>
-                    <button className="flex-1 bg-white/10 backdrop-blur-md text-white border border-white/10 py-4 rounded-2xl font-bold text-sm hover:bg-white/20 transition-all">
-                      Transfer
-                    </button>
+                  <h1 className="text-4xl md:text-6xl font-display font-bold text-slate-900 uppercase tracking-tighter">My <span className="text-brand-accent italic font-serif">Wallet.</span></h1>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Balance Card */}
+                <div className="lg:col-span-2 bg-slate-900 rounded-[40px] p-10 text-white relative overflow-hidden group shadow-2xl shadow-slate-900/20">
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-brand-accent/10 rounded-full blur-[100px] -mr-48 -mt-48 transition-all duration-700 group-hover:bg-brand-accent/20" aria-hidden="true"></div>
+                  <div className="relative z-10 space-y-12">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-[0.4em]">Available Funds</div>
+                        <div className="text-7xl font-display font-bold tracking-tighter text-brand-accent">₹{(wallet?.balance || 0).toLocaleString()}</div>
+                      </div>
+                      <div className="w-16 h-16 rounded-3xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center text-brand-accent">
+                        <Wallet className="w-8 h-8" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 py-8 border-t border-white/10">
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest">LOYALTY STATUS</div>
+                        <div className="text-lg font-bold flex items-center gap-2">
+                           <Sparkles className="w-4 h-4 text-brand-accent" />
+                           {wallet?.tier || 'Explorer'}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest">LIFETIME POINTS</div>
+                        <div className="text-lg font-bold">{wallet?.loyaltyPoints || 0} PTS</div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4">
+                      <button 
+                        onClick={async () => {
+                           const updated = await walletApi.topUp(1000);
+                           setWallet(updated);
+                        }}
+                        className="flex-1 min-w-[160px] bg-brand-accent text-slate-900 py-5 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-white transition-all shadow-xl shadow-brand-accent/20"
+                      >
+                        Add Credits
+                      </button>
+                      <button className="flex-1 min-w-[160px] bg-white/5 backdrop-blur-md text-white border border-white/10 py-5 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-white/10 transition-all">
+                        Withdraw
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Stats Sidebar */}
+                <div className="space-y-6">
+                  <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-6">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Monthly Spending</div>
+                    <div className="space-y-4">
+                       <div className="flex items-center justify-between">
+                         <span className="text-sm font-medium text-slate-600">Travel</span>
+                         <span className="text-sm font-bold text-slate-900">₹42,500</span>
+                       </div>
+                       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-full bg-brand-accent w-[65%] rounded-full"></div>
+                       </div>
+                    </div>
+                    <div className="space-y-4">
+                       <div className="flex items-center justify-between">
+                         <span className="text-sm font-medium text-slate-600">Dining/Misc</span>
+                         <span className="text-sm font-bold text-slate-900">₹12,800</span>
+                       </div>
+                       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-full bg-slate-300 w-[25%] rounded-full"></div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-600 rounded-[32px] p-8 text-white space-y-4 relative overflow-hidden">
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mb-16"></div>
+                    <div className="text-[10px] font-bold text-emerald-100/60 uppercase tracking-widest">Next Reward</div>
+                    <div className="text-xl font-bold leading-tight">150 pts away from <span className="italic">Elite Tier</span></div>
+                    <p className="text-[10px] text-emerald-100/80 leading-relaxed uppercase tracking-widest">Complete 2 more stays</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm space-y-6">
-                <h2 className="text-2xl font-display font-bold text-slate-900">Recent Transactions</h2>
+              <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm space-y-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <h2 className="text-3xl font-display font-bold text-slate-900 tracking-tight">Transaction History</h2>
+                  
+                  <div className="flex items-center gap-3">
+                    <div className="relative group">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-brand-accent transition-colors" />
+                      <input 
+                        type="text" 
+                        placeholder="SEARCH TRANSACTIONS..." 
+                        value={txSearchQuery}
+                        onChange={(e) => setTxSearchQuery(e.target.value)}
+                        className="pl-11 pr-6 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-bold tracking-widest uppercase focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all outline-none w-full md:w-64"
+                      />
+                    </div>
+                    <button className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-brand-accent transition-colors">
+                      <Filter className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {isLoading ? (
-                    [1, 2, 3].map(i => <div key={i} className="h-20 bg-slate-50 animate-pulse rounded-3xl" />)
+                    [1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-50 animate-pulse rounded-[32px]" />)
                   ) : transactions.length === 0 ? (
-                    <div className="py-12 text-center text-slate-400 font-serif italic">No transactions recorded.</div>
+                    <div className="py-24 text-center space-y-4">
+                      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mx-auto">
+                        <CreditCard className="w-10 h-10" />
+                      </div>
+                      <p className="text-slate-400 font-serif italic text-lg">"No financial footprints yet."</p>
+                    </div>
                   ) : (
-                    transactions.map((t) => (
-                      <div key={t.id} className="flex items-center justify-between p-6 bg-[#F8F9FB] rounded-3xl group cursor-pointer hover:bg-white hover:shadow-xl hover:shadow-brand-accent/10 transition-all border border-transparent hover:border-brand-accent/20">
+                    transactions
+                      .filter(t => t.title.toLowerCase().includes(txSearchQuery.toLowerCase()) || t.method.toLowerCase().includes(txSearchQuery.toLowerCase()))
+                      .map((t) => (
+                      <div key={t.id} className="flex flex-col md:flex-row md:items-center justify-between p-8 bg-white border border-slate-100 rounded-[32px] group hover:border-brand-accent/20 hover:shadow-xl hover:shadow-brand-accent/5 transition-all duration-500">
                         <div className="flex items-center gap-6">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.type === 'income' ? 'bg-brand-accent/10 text-brand-accent' : 'bg-rose-50 text-rose-500'}`}>
-                            {t.type === 'income' ? <TrendingUp className="w-5 h-5" aria-hidden="true" /> : <CreditCard className="w-5 h-5" aria-hidden="true" />}
+                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-500 group-hover:scale-110 ${t.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400 group-hover:bg-brand-accent/10 group-hover:text-brand-accent'}`}>
+                            {t.type === 'income' ? <ArrowDownRight className="w-6 h-6" /> : <ArrowUpRight className="w-6 h-6" />}
                           </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-900 line-clamp-1">{t.title}</div>
-                            <div className="text-xs text-slate-400">{new Date(t.date).toLocaleDateString()}</div>
+                          <div className="space-y-1">
+                            <div className="text-base font-bold text-slate-900 group-hover:text-brand-accent transition-colors">{t.title}</div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(t.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                              <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.method}</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className={`text-lg font-bold ${t.type === 'income' ? 'text-brand-accent' : 'text-rose-500'}`}>
+                        
+                        <div className="mt-6 md:mt-0 text-right space-y-1">
+                          <div className={`text-2xl font-display font-bold tracking-tight ${t.type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>
                             {t.type === 'income' ? '+' : '-'}₹{Math.abs(t.amount).toLocaleString()}
                           </div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.method}</div>
+                          <div className="flex items-center justify-end gap-2">
+                             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Completed</span>
+                          </div>
                         </div>
                       </div>
                     ))
                   )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── OWNER PANEL TAB ── */}
+          {activeTab === 'owner' && (
+            <motion.div key="owner" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-12">
+               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-brand-accent uppercase tracking-[0.3em]">PROPERTY MANAGEMENT</span>
+                    <span className="h-px w-8 bg-brand-accent/20" aria-hidden="true"></span>
+                  </div>
+                  <h1 className="text-4xl md:text-6xl font-display font-bold text-slate-900 uppercase tracking-tighter">Owner <span className="text-brand-accent italic font-serif">Panel.</span></h1>
+                </div>
+                <button 
+                  onClick={() => navigate('/admin/properties/new')} // Assuming this exists or works for owners
+                  className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-brand-accent transition-all shadow-xl shadow-slate-900/10 flex items-center gap-3"
+                >
+                  <Plus className="w-4 h-4" />
+                  List New Property
+                </button>
+              </div>
+
+              {/* Owner Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-2">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Managed Hotels</div>
+                  <div className="text-4xl font-display font-bold text-slate-900">{ownerProperties.length}</div>
+                </div>
+                <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-2">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Bookings</div>
+                  <div className="text-4xl font-display font-bold text-slate-900">{ownerBookings.length}</div>
+                </div>
+                <div className="bg-emerald-600 rounded-[32px] p-8 text-white space-y-2 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12" aria-hidden="true"></div>
+                   <div className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest">Est. Revenue</div>
+                   <div className="text-4xl font-display font-bold">₹{ownerBookings.reduce((acc, b) => acc + Number(b.totalAmount), 0).toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                {/* My Properties List */}
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-display font-bold text-slate-900">My Properties</h2>
+                  </div>
+                  <div className="space-y-4">
+                    {ownerProperties.length === 0 ? (
+                      <div className="py-12 text-center bg-white rounded-[32px] border border-dashed border-slate-200">
+                        <MapPin className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+                        <p className="text-slate-400 font-serif italic text-sm">No properties listed yet.</p>
+                      </div>
+                    ) : (
+                      ownerProperties.map(prop => (
+                        <div key={prop.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm flex items-center gap-6 group hover:border-brand-accent/20 transition-all">
+                          <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 shadow-inner">
+                            <img src={prop.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-slate-900 truncate">{prop.name}</h3>
+                            <div className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                              <MapPin className="w-3 h-3" /> {prop.location}
+                            </div>
+                            <div className="text-xs font-bold text-brand-accent mt-2">₹{prop.price.toLocaleString()} / night</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                             <button 
+                               onClick={() => navigate(`/property/${prop.id}`)}
+                               className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:text-brand-accent hover:bg-emerald-50 transition-all"
+                               title="View details"
+                             >
+                               <ArrowUpRight className="w-4 h-4" />
+                             </button>
+                             <button 
+                               onClick={async () => {
+                                 if (window.confirm(`Are you sure you want to delete ${prop.name}?`)) {
+                                   setIsDeletingProperty(prop.id);
+                                   try {
+                                     await propertyApi.deleteProperty(prop.id);
+                                     setOwnerProperties(prev => prev.filter(p => p.id !== prop.id));
+                                   } catch (err) {
+                                     console.error('Delete failed:', err);
+                                     alert('Failed to delete property.');
+                                   } finally {
+                                     setIsDeletingProperty(null);
+                                   }
+                                 }
+                               }}
+                               disabled={isDeletingProperty === prop.id}
+                               className={`p-3 bg-rose-50 text-rose-400 rounded-xl hover:bg-rose-100 transition-all ${isDeletingProperty === prop.id ? 'opacity-50' : ''}`}
+                               title="Delete property"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                             </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Property Bookings */}
+                <div className="space-y-8">
+                   <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-display font-bold text-slate-900">Hotel Bookings</h2>
+                  </div>
+                  <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-slate-50">
+                            <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                            <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {ownerBookings.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-serif italic text-sm">
+                                No bookings received for your properties yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            ownerBookings.map(b => (
+                              <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="text-xs font-bold text-slate-900">{(b as any).user?.name || 'Customer'}</div>
+                                  <div className="text-[10px] text-slate-400 font-medium">{(b as any).user?.email}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                   <div className="text-xs font-bold text-slate-700">{new Date(b.travelDate).toLocaleDateString()}</div>
+                                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">ID: {b.id.slice(0,8)}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                   <div className="text-xs font-bold text-emerald-600">₹{Number(b.totalAmount).toLocaleString()}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${b.status === 'confirmed' ? 'bg-emerald-50 text-brand-accent' : 'bg-rose-50 text-rose-500'}`}>
+                                    {b.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>

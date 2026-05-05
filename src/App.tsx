@@ -32,6 +32,7 @@ import BusBooking from './pages/BusBooking';
 import Trains from './pages/Trains';
 import TrainBooking from './pages/TrainBooking';
 import NotFound from './pages/NotFound';
+import CreateHotelWizard from './pages/CreateHotelWizard';
 import { AnimatePresence, motion } from 'motion/react';
 import MobileNav from './components/MobileNav';
 import Login from './pages/Login';
@@ -77,6 +78,8 @@ const AnimatedRoutes = () => {
               <Route path="/dashboard"           element={<Dashboard />} />
               <Route path="/owner/dashboard"     element={<OwnerDashboard />} />
               <Route path="/admin/dashboard"     element={<AdminDashboard />} />
+              <Route path="/admin/properties/new" element={<CreateHotelWizard />} />
+              <Route path="/admin/properties/edit/:id" element={<CreateHotelWizard />} />
               <Route path="/nearby"              element={<NearbyServices />} />
               <Route path="/flights"             element={<FlightResults />} />
               <Route path="/flights/search"      element={<Flights />} />

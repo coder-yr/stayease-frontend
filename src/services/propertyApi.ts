@@ -153,6 +153,21 @@ class PropertyService {
     const items = Array.isArray(data.items) ? data.items : [];
     return items.map((item) => this.mapHotelToProperty(item));
   }
+
+  public async getOwnerProperties(): Promise<Property[]> {
+    const data = await apiGet<any[]>('/hotels/my/list');
+    return (data || []).map((item) => this.mapHotelToProperty(item));
+  }
+
+  public async deleteProperty(id: string): Promise<void> {
+    const { apiDelete } = await import('./apiClient');
+    await apiDelete(`/hotels/my/${id}`);
+  }
+
+  public async createProperty(data: any): Promise<any> {
+    const { apiPost } = await import('./apiClient');
+    return apiPost('/hotels', data);
+  }
 }
 
 export const propertyApi = PropertyService.getInstance();

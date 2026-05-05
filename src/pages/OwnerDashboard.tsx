@@ -114,28 +114,11 @@ export default function OwnerDashboard() {
   };
 
   const openAdd = () => {
-    setEditingId(null);
-    setFormData(emptyForm());
-    setFormError('');
-    setShowForm(true);
+    navigate('/admin/properties/new');
   };
 
   const handleEdit = (hotel: Hotel) => {
-    setFormData({
-      name: hotel.name,
-      location: hotel.location,
-      price: Number(hotel.price),
-      rating: Number(hotel.rating),
-      reviewCount: hotel.reviewCount,
-      category: hotel.category,
-      description: hotel.description ?? '',
-      deposit: hotel.deposit != null ? Number(hotel.deposit) : undefined,
-      rules: hotel.rules ?? '',
-      mealsIncluded: hotel.mealsIncluded ?? undefined
-    });
-    setEditingId(hotel.id);
-    setFormError('');
-    setShowForm(true);
+    navigate(`/admin/properties/edit/${hotel.id}`);
   };
 
   const handleDelete = async (id: string) => {

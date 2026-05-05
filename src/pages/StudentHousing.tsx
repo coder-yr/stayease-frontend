@@ -2,20 +2,13 @@ import React from 'react';
 import { 
   Search, 
   MapPin, 
-  Users, 
   ShieldCheck, 
   Wifi, 
   Coffee, 
   ArrowRight, 
   Heart, 
-  Sparkles,
-  Command,
-  LayoutGrid,
-  TrendingUp,
   Lock,
-  X,
-  Check,
-  Zap
+  X
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
@@ -51,11 +44,10 @@ const StudentHousing: React.FC = () => {
    React.useEffect(() => {
       const fetchPgs = async () => {
          setLoading(true);
-         const data = await propertyApi.getProperties();
-         // Only include properties with category 'PG' (case-insensitive)
-         const pgOnly = data.filter(p => p.category && p.category.toLowerCase() === 'pg');
-         setAllPgs(pgOnly);
-         setFilteredPgs(pgOnly);
+         // Fetch specifically PG category from backend
+         const data = await propertyApi.getProperties({ category: 'PG' });
+         setAllPgs(data);
+         setFilteredPgs(data);
          setLoading(false);
       };
       fetchPgs();
@@ -122,12 +114,6 @@ const StudentHousing: React.FC = () => {
     }
   };
 
-  const roommates = [
-    { name: 'Arjun M.', college: 'IIT Delhi', major: 'CS Engineering', tags: ['Night Owl', 'Gamer'], image: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Suhana R.', college: 'NIFT', major: 'Fashion Design', tags: ['Artist', 'Early Bird'], image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Vihaan K.', college: 'St. Stephens', major: 'Economics', tags: ['Fitness', 'Chef'], image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80' },
-    { name: 'Meera V.', college: 'SRCC', major: 'Commerce', tags: ['Writer', 'Music'], image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80' },
-  ];
 
   const benefits = [
     { icon: <ShieldCheck className="w-6 h-6" />, title: 'BIOMETRIC SECURITY', desc: 'FaceID & 24/7 human surveillance.' },
@@ -290,145 +276,6 @@ const StudentHousing: React.FC = () => {
         </div>
       </section>
 
-      {/* Community Section */}
-      <section className="py-40 bg-slate-950 relative overflow-hidden text-white">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-brand-accent/5 rounded-full blur-[180px] -mr-96 -mt-96"></div>
-        <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-blue-600/5 rounded-full blur-[180px] -ml-96 -mb-96"></div>
-        
-        <div className="max-w-7xl mx-auto px-6 relative z-10 space-y-32">
-           <div className="flex flex-col md:flex-row justify-between items-start gap-12">
-              <div className="space-y-8 max-w-2xl">
-                 <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-bold text-brand-accent uppercase tracking-[0.4em]">The Network</span>
-                    <span className="h-px w-12 bg-brand-accent/20"></span>
-                 </div>
-                 <h2 className="text-7xl md:text-9xl font-display font-bold text-white uppercase tracking-tighter leading-[0.8]">
-                    Find Your <br />
-                    <span className="text-brand-accent italic serif-italic lowercase">vibe.</span>
-                 </h2>
-                 <p className="text-slate-400 text-xl font-medium max-w-md font-serif italic leading-relaxed">
-                    "Connect with visionary minds from 150+ colleges across the country."
-                 </p>
-              </div>
-              <div className="flex flex-col items-center gap-8 pt-10">
-                 <button className="bg-white text-slate-950 px-16 py-8 rounded-[40px] font-bold text-[11px] uppercase tracking-widest shadow-3xl hover:bg-brand-accent hover:text-white transition-all active:scale-95 duration-500">
-                    Create My Vibe-Profile
-                 </button>
-                 <div className="flex items-center gap-4 text-brand-accent/60 font-medium text-xs tracking-widest uppercase">
-                    <Users className="w-5 h-5 text-brand-accent" />
-                    2,482 Pioneers Online Now
-                 </div>
-              </div>
-           </div>
-
-           <motion.div 
-             variants={staggerContainer}
-             initial="hidden"
-             whileInView="show"
-             viewport={{ once: true, margin: "-50px" }}
-             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
-           >
-              {roommates.map((person, idx) => (
-                 <motion.div 
-                   key={idx}
-                   variants={fadeUpItem}
-                   whileHover={{ y: -15, backgroundColor: 'rgba(255, 255, 255, 0.08)', scale: 1.02 }}
-                   className="bg-white/5 border border-white/10 p-12 rounded-[64px] text-center space-y-8 transition-all relative group"
-                 >
-                    <div className="relative mx-auto">
-                       <div className="w-40 h-40 rounded-full overflow-hidden mx-auto border-4 border-brand-accent/20 group-hover:border-brand-accent transition-all duration-700">
-                          <img src={person.image} alt={person.name} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
-                       </div>
-                       <div className="absolute bottom-2 right-1/2 translate-x-12 w-10 h-10 bg-brand-accent border-4 border-slate-950 rounded-full flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 text-white" />
-                       </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                       <h4 className="text-3xl font-display font-bold tracking-tight">{person.name}</h4>
-                       <div className="flex flex-col gap-1">
-                          <span className="text-brand-accent text-[10px] font-bold tracking-widest uppercase">{person.college}</span>
-                          <span className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{person.major}</span>
-                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap justify-center gap-2 pt-4">
-                       {person.tags.map((tag, i) => (
-                          <span key={i} className="text-[8px] font-bold uppercase tracking-widest border border-white/10 px-4 py-2 rounded-full text-slate-400 group-hover:text-white transition-colors">
-                             {tag}
-                          </span>
-                       ))}
-                    </div>
-
-                    <button 
-                        onClick={() => handleConnect(person.name)}
-                        className={`w-full py-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-xl flex items-center justify-center gap-2 ${connectionSent.includes(person.name) ? 'bg-brand-accent border-brand-accent text-white' : 'bg-white/5 border border-white/10 text-white hover:bg-brand-accent hover:border-emerald-600'}`}
-                    >
-                       {connectionSent.includes(person.name) ? <Check className="w-4 h-4" /> : null}
-                       {connectionSent.includes(person.name) ? 'Connection Established' : 'Establish Connection'}
-                    </button>
-                 </motion.div>
-              ))}
-           </motion.div>
-        </div>
-      </section>
-
-      {/* Resources Section */}
-      <section className="py-40 max-w-7xl mx-auto px-6 space-y-24">
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-            <div className="space-y-12">
-               <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                     <span className="text-[10px] font-bold text-brand-accent uppercase tracking-widest">Life Guides</span>
-                     <span className="h-px w-12 bg-brand-accent/30"></span>
-                  </div>
-                  <h2 className="text-6xl font-display font-bold text-slate-900 uppercase tracking-tighter leading-[0.9]">
-                     The Student <br />
-                     <span className="text-brand-accent italic serif-italic lowercase">manifesto.</span>
-                  </h2>
-                  <p className="text-slate-500 text-xl font-medium max-w-sm leading-relaxed font-serif italic">
-                     "Everything we've learned about thriving in a new city while acing your finals."
-                  </p>
-               </div>
-               
-               <div className="space-y-4">
-                  {[
-                    { title: "Financial Freedom 101", icon: <Command className="w-4 h-4" /> },
-                    { title: "The High-Performance Routine", icon: <Zap className="w-4 h-4" /> },
-                    { title: "Building a Digital Portfolio", icon: <LayoutGrid className="w-4 h-4" /> }
-                  ].map((guide, i) => (
-                    <div key={i} className="flex items-center justify-between p-8 bg-white border border-slate-50 rounded-3xl hover:border-emerald-200 hover:shadow-2xl transition-all cursor-pointer group shadow-sm">
-                       <div className="flex items-center gap-6">
-                          <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-brand-accent transition-colors">
-                             {guide.icon}
-                          </div>
-                          <h4 className="text-xl font-bold text-slate-900 uppercase tracking-tight">{guide.title}</h4>
-                       </div>
-                       <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-brand-accent group-hover:translate-x-2 transition-all" />
-                    </div>
-                  ))}
-               </div>
-
-               <button className="flex items-center gap-4 text-[11px] font-bold text-brand-accent uppercase tracking-[0.4em] hover:text-slate-950 transition-colors">
-                  Library of All Guides <ArrowRight className="w-5 h-5" />
-               </button>
-            </div>
-
-            <div className="relative h-[800px] rounded-[64px] overflow-hidden group shadow-3xl">
-               <img 
-                 src="https://images.unsplash.com/photo-1541339907198-e08756dee81c?auto=format&fit=crop&w=1200&q=80" 
-                 alt="Library Study" 
-                 className="w-full h-full object-cover transition-transform duration-[4000ms] group-hover:scale-110" 
-               />
-               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent p-16 flex flex-col justify-end">
-                  <span className="text-brand-accent text-[10px] font-bold tracking-[0.6em] mb-4 uppercase">Editor's Note</span>
-                  <h3 className="text-4xl font-display font-bold text-white uppercase tracking-tighter max-w-md leading-tight">
-                     Mastering the Art of Deep Work in Shared Spaces.
-                  </h3>
-               </div>
-            </div>
-         </div>
-      </section>
 
       {/* Safety Section */}
       <section className="bg-slate-950 py-32 px-6 relative overflow-hidden group cursor-pointer" onClick={() => navigate('/support')}>

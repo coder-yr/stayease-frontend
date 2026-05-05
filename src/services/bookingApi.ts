@@ -57,5 +57,13 @@ export const bookingApi = {
 
   listMyBookings: async (): Promise<Booking[]> => {
     return apiGet<Booking[]>("/bookings/mine");
+  },
+  
+  confirmBooking: async (id: string, paymentMethod: string): Promise<any> => {
+    return apiPost<any>(`/bookings/${id}/confirm`, { paymentMethod });
+  },
+
+  getOwnerBookings: async (): Promise<Booking[]> => {
+    return apiGet<Booking[]>("/bookings/owner-bookings");
   }
 };
