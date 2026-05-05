@@ -13,7 +13,7 @@ type ApiErrorEnvelope = {
 const trimSlash = (value: string) => value.replace(/\/+$/, "");
 
 export const API_BASE_URL = trimSlash(
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000/api"
+  import.meta.env.VITE_API_BASE_URL ?? "https://stayease-backend-2.onrender.com/api"
 );
 
 const parseJsonToken = (value: string): string | null => {
